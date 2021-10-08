@@ -1,0 +1,60 @@
+#ifndef _UBENCH_DEFS_H
+#define _UBENCH_DEFS_H
+#include <stdint.h>
+#include <bpf/xsk.h>
+struct xsk_ring_stats {
+    unsigned long rx_npkts;
+    unsigned long tx_npkts;
+    unsigned long rx_dropped_npkts;
+    unsigned long rx_invalid_npkts;
+    unsigned long tx_invalid_npkts;
+    unsigned long rx_full_npkts;
+    unsigned long rx_fill_empty_npkts;
+    unsigned long tx_empty_npkts;
+    unsigned long prev_rx_npkts;
+    unsigned long prev_tx_npkts;
+    unsigned long prev_rx_dropped_npkts;
+    unsigned long prev_rx_invalid_npkts;
+    unsigned long prev_tx_invalid_npkts;
+    unsigned long prev_rx_full_npkts;
+    unsigned long prev_rx_fill_empty_npkts;
+    unsigned long prev_tx_empty_npkts;
+};
+
+struct xsk_driver_stats {
+    unsigned long intrs;
+    unsigned long prev_intrs;
+};
+
+struct xsk_app_stats {
+    unsigned long rx_empty_polls;
+    unsigned long fill_fail_polls;
+    unsigned long copy_tx_sendtos;
+    unsigned long tx_wakeup_sendtos;
+    unsigned long opt_polls;
+    unsigned long prev_rx_empty_polls;
+    unsigned long prev_fill_fail_polls;
+    unsigned long prev_copy_tx_sendtos;
+    unsigned long prev_tx_wakeup_sendtos;
+    unsigned long prev_opt_polls;
+    unsigned long delay_cycles;
+};
+
+struct xsk_umem_info {
+    struct xsk_ring_prod fq;
+    struct xsk_ring_cons cq;
+    struct xsk_umem *umem;
+    void *buffer;
+};
+
+struct xsk_socket_info {
+    struct xsk_ring_cons rx;
+    struct xsk_ring_prod tx;
+    struct xsk_umem_info *umem;
+    struct xsk_socket *xsk;
+    struct xsk_ring_stats ring_stats;
+    struct xsk_app_stats app_stats;
+    struct xsk_driver_stats drv_stats;
+    uint32_t outstanding_tx;
+};
+#endif
