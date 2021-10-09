@@ -1,7 +1,10 @@
-#include "defs.h"
-#include "service_stats.h"
-
 #include <time.h>
+
+#include "service_stats.h"
+#include "defs.h"
+#include "config.h"
+#include "log.h"
+
 
 void *report(void *arg)
 {
@@ -34,3 +37,4 @@ void *report(void *arg)
     }
     return 0;
 }
+

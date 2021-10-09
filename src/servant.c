@@ -3,8 +3,8 @@
  */
 #include <stdio.h>
 #include <stdlib.h>
+#include <errno.h>
 #include <sys/resource.h>
-#include <sys/mman.h> // mmap
 #include <sys/socket.h>
 #include <signal.h>
 
@@ -21,10 +21,11 @@
 #include "config.h" // application configuration and parsing arguments
 #include "defs.h"   // af_xdp structs
 #include "log.h"
+#include "heart.h"
 
 
 static void int_exit() {
-    config.benchmark_done = 1;
+    config.terminate = 1;
 }
 
 static void setRlimit()
@@ -38,10 +39,10 @@ static void setRlimit()
 
 int main(int argc, char *argv[])
 {
-    parse_args(argc, argv, &config);
+    parse_args(argc, argv);
     setRlimit();
 
-    setup_socket(config.ifname, config.qid);
+    struct xsk_socket_info *xsk = setup_socket(config.ifname, config.qid);
 
     // Add interrupt handler
     signal(SIGINT,  int_exit);
@@ -49,20 +50,15 @@ int main(int argc, char *argv[])
     signal(SIGABRT, int_exit);
 
     // Start report thread
-    pthread_t report_thread;
-    pthread_create(&report_thread, NULL, report, (void *)xsk);
+    /* pthread_t report_thread; */
+    /* pthread_create(&report_thread, NULL, report, (void *)xsk); */
 
-    // Run app logic
-    xsk_func process = handlers[config.exp];
-    process(xsk, &config);
+    // Poll the socket and send receive packets to eBPF engine
+    pump_packets(xsk);
 
     // Clean up
-    pthread_join(report_thread, NULL);
-    xsk_socket__delete(xsk->xsk);
-    xsk_umem__delete(umem->umem);
-    free(xsk);
-    free(umem);
-    munmap(bufs, umem_size);
+    /* pthread_join(report_thread, NULL); */
+    tear_down_socket(xsk);
     INFO("Done!\n");
     return 0;
 }

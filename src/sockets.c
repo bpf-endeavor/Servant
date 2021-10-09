@@ -1,9 +1,13 @@
-#include <stdlib.h>
+#include <stdlib.h> // exit
+#include <sys/mman.h> // mmap
+#include <linux/if_link.h> // some XDP flags
+
 #include "sockets.h"
 #include "config.h"
 #include "log.h"
 
-struct xsk_socket_info * setup_socket(char *ifname, uint32_t qid)
+struct xsk_socket_info *
+setup_socket(char *ifname, uint32_t qid)
 {
     struct xsk_umem_info *umem = NULL;
     int ret = 0;
@@ -113,3 +117,16 @@ struct xsk_socket_info * setup_socket(char *ifname, uint32_t qid)
     return xsk;
 
 }
+
+void
+tear_down_socket(struct xsk_socket_info *xsk)
+{
+    uint64_t umem_size = config.num_frames * config.frame_size;
+    xsk_socket__delete(xsk->xsk);
+    xsk_umem__delete(xsk->umem->umem);
+    munmap(xsk->umem->buffer, umem_size);
+    free(xsk->umem);
+    free(xsk);
+}
+
+

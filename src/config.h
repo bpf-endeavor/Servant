@@ -1,8 +1,7 @@
 #ifndef ARGS_H
 #define ARGS_H
 
-#include <errno.h>
-#include <getopt.h>
+#include <stdint.h>
 #include <net/if.h> // if_nametoindex
 
 struct config {
@@ -31,7 +30,7 @@ struct config {
     uint32_t tmp;
 };
 
-extern struct config config = {};
+extern struct config config;
 
 void usage(char *prog_name);
 void parse_args(int argc, char *argv[]);

@@ -2,6 +2,10 @@
 #define _UBENCH_DEFS_H
 #include <stdint.h>
 #include <bpf/xsk.h>
+
+#define SO_PREFER_BUSY_POLL     69
+#define SO_BUSY_POLL_BUDGET     70
+
 struct xsk_ring_stats {
     unsigned long rx_npkts;
     unsigned long tx_npkts;
@@ -55,6 +59,6 @@ struct xsk_socket_info {
     struct xsk_ring_stats ring_stats;
     struct xsk_app_stats app_stats;
     struct xsk_driver_stats drv_stats;
-    uint32_t outstanding_tx;
+    unsigned int outstanding_tx;
 };
 #endif

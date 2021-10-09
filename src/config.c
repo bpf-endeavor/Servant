@@ -1,5 +1,14 @@
+#include <stdio.h>
+#include <stdlib.h> // exit, atoi
 #include <math.h>
+#include <errno.h>
+#include <getopt.h>
+#include <linux/if_xdp.h> // XDP_ZEROCOPY
+
 #include "config.h"
+#include "log.h"
+ 
+struct config config = {};
 
 void usage(char *prog_name)
 {
@@ -14,22 +23,22 @@ void usage(char *prog_name)
 }
  
 
-void parse_args(int argc, char *argv[], struct config *config)
+void parse_args(int argc, char *argv[])
 {
     // Default Values
-    config->frame_size = 4096;
-    config->frame_shift = log2(config->frame_size);
-    config->headroom = 0;
-    config->busy_poll = 0;
-    config->busy_poll_duration = 50;
-    config->batch_size = 64;
-    config->benchmark_done = 0;
-    config->rx_size = 2048;
-    config->tx_size = 1024;
-    config->copy_mode = XDP_ZEROCOPY;
-    // config->copy_mode = XDP_COPY;
-    config->custom_kern_prog = 0;
-    config->custom_kern_path = NULL;
+    config.frame_size = 4096;
+    config.frame_shift = log2(config.frame_size);
+    config.headroom = 0;
+    config.busy_poll = 0;
+    config.busy_poll_duration = 50;
+    config.batch_size = 64;
+    config.terminate = 0;
+    config.rx_size = 2048;
+    config.tx_size = 1024;
+    config.copy_mode = XDP_ZEROCOPY;
+    // config.copy_mode = XDP_COPY;
+    config.custom_kern_prog = 0;
+    config.custom_kern_path = NULL;
 
     enum opts {
         NUM_FRAMES = 100,
@@ -55,27 +64,27 @@ void parse_args(int argc, char *argv[], struct config *config)
             break;
         switch (ret) {
             case NUM_FRAMES:
-                // config->num_frames = atoi(optarg);
-                msg(INFO, "Number of frames is determined automatically\n");
+                // config.num_frames = atoi(optarg);
+                INFO("Number of frames is determined automatically\n");
                 break;
             case FRAME_SIZE:
-                config->frame_size = atoi(optarg);
-                config->frame_shift = log2(config->frame_size);
+                config.frame_size = atoi(optarg);
+                config.frame_shift = log2(config.frame_size);
                 break;
             case BATCH_SIZE:
-                config->batch_size = atoi(optarg);
+                config.batch_size = atoi(optarg);
                 break;
             case RX_SIZE:
-                config->rx_size = atoi(optarg);
+                config.rx_size = atoi(optarg);
                 break;
             case TX_SIZE:
-                config->tx_size = atoi(optarg);
+                config.tx_size = atoi(optarg);
                 break;
             case COPY_MODE:
-                config->copy_mode = XDP_COPY;
+                config.copy_mode = XDP_COPY;
                 break;
             default:
-                msg(ERROR, "Unknown: argument!\n");
+                ERROR("Unknown: argument!\n");
                 exit(EXIT_FAILURE);
                 break;
         }
@@ -84,33 +93,33 @@ void parse_args(int argc, char *argv[], struct config *config)
         usage(argv[0]);
         exit(EXIT_FAILURE);
     }
-    config->ifname = argv[optind];
-    config->ifindex = if_nametoindex(config->ifname);
-    if(config->ifindex < 0) {
-        msg(ERROR, "interface %s not found (%d)\n",
-                config->ifname, config->ifindex);
+    config.ifname = argv[optind];
+    config.ifindex = if_nametoindex(config.ifname);
+    if(config.ifindex < 0) {
+        ERROR("interface %s not found (%d)\n",
+                config.ifname, config.ifindex);
         exit(EXIT_FAILURE);
     }
     optind++;
-    config->qid = atoi(argv[optind]);
+    config.qid = atoi(argv[optind]);
     optind++;
 
     // How many descriptors are needed
-    config->num_frames = (config->rx_size + config->tx_size) * 4;
+    config.num_frames = (config.rx_size + config.tx_size) * 4;
 
-    if(config->busy_poll){
+    if(config.busy_poll){
         printf("BUSY POLLING\n");
     }
-    if (config->copy_mode == XDP_ZEROCOPY) {
+    if (config.copy_mode == XDP_ZEROCOPY) {
         printf("Running in ZEROCOPY mode!\n");
-    } else if (config->copy_mode == XDP_COPY) {
+    } else if (config.copy_mode == XDP_COPY) {
         printf("Running in COPY mode!\n");
     } else {
         fprintf(stderr, "Copy mode was not detected!\n");
         exit(EXIT_FAILURE);
     }
-    printf("Batch Size: %d\n", config->batch_size);
-    printf("Rx Ring Size: %d\n", config->rx_size);
-    printf("Tx Ring Size: %d\n", config->tx_size);
+    printf("Batch Size: %d\n", config.batch_size);
+    printf("Rx Ring Size: %d\n", config.rx_size);
+    printf("Tx Ring Size: %d\n", config.tx_size);
 }
 
