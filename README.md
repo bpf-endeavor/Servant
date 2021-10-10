@@ -23,4 +23,13 @@ make all OBJDIR=.
 make install DESTDIR=build OBJDIR=.
 ```
 
+**Issues with libbpf:**
+
+```
+./servant: error while loading shared libraries: libbpf.so.0: cannot open shared object file: No such file or directory
+```
+
+If there is a problem with linking the shared object, you might need to add
+the libbpf.so directory to `/etc/ld.so.conf.d/libbpf.conf`. Check the path with
+`whereis libbpf`.
 

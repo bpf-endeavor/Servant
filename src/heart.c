@@ -78,6 +78,7 @@ uint32_t drop(struct xsk_socket_info *xsk, struct xdp_desc **batch, uint32_t cnt
         *xsk_ring_prod__fill_addr(&xsk->umem->fq, idx_target) = orig;
         idx_target++;
     }
+    xsk_ring_prod__submit(&xsk->umem->fq, cnt);
     return cnt;
 }
 
@@ -89,7 +90,7 @@ uint32_t drop(struct xsk_socket_info *xsk, struct xdp_desc **batch, uint32_t cnt
  * @param xsk Socket to be polled.
  */
 void pump_packets(struct xsk_socket_info *xsk) {
-    uint32_t rx; 
+    uint32_t rx;
     const uint32_t cnt = config.batch_size;
     struct xdp_desc *batch[cnt];
     for(;;) {
@@ -99,9 +100,11 @@ void pump_packets(struct xsk_socket_info *xsk) {
         rx = poll_rx_queue(xsk, batch, cnt);
         if (!rx)
             continue;
+        /* DEBUG("Rx: %d\n", rx); */
+
         // Pass to brain
         // TODO: there is no brain yet!
-        drop(xsk, batch, cnt);
+        drop(xsk, batch, rx);
     }
 }
 

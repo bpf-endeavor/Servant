@@ -22,6 +22,7 @@ struct config {
     uint32_t busy_poll_duration;
     uint32_t batch_size;
     int copy_mode;
+    int xdp_mode;
     // Custom Kernel
     int custom_kern_prog;
     char *custom_kern_path;

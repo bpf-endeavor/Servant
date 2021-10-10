@@ -4,6 +4,7 @@
 #include <errno.h>
 #include <getopt.h>
 #include <linux/if_xdp.h> // XDP_ZEROCOPY
+#include <linux/if_link.h>
 
 #include "config.h"
 #include "log.h"
@@ -17,7 +18,7 @@ void usage(char *prog_name)
             "*\t qid:    number of queue to attach to\n"
             "Options:\n"
             "\t num-frames, frame-size, batch-size,rx-size, tx-size,\n"
-            "\t copy-mode, rps\n"
+            "\t copy-mode, skb-mode, rps\n"
             );
     printf(desc, prog_name);
 }
@@ -36,6 +37,7 @@ void parse_args(int argc, char *argv[])
     config.rx_size = 2048;
     config.tx_size = 1024;
     config.copy_mode = XDP_ZEROCOPY;
+    config.xdp_mode = XDP_FLAGS_DRV_MODE;
     // config.copy_mode = XDP_COPY;
     config.custom_kern_prog = 0;
     config.custom_kern_path = NULL;
@@ -47,6 +49,7 @@ void parse_args(int argc, char *argv[])
         RX_SIZE,
         TX_SIZE,
         COPY_MODE,
+        SKB_MODE,
     };
     struct option long_opts[] = {
         {"num-frames", required_argument, NULL, NUM_FRAMES},
@@ -55,6 +58,7 @@ void parse_args(int argc, char *argv[])
         {"rx-size", required_argument, NULL, RX_SIZE},
         {"tx-size", required_argument, NULL, TX_SIZE},
         {"copy-mode", no_argument, NULL, COPY_MODE},
+        {"skb-mode", no_argument, NULL, SKB_MODE},
     };
     int ret;
     char optstring[] = "";
@@ -83,6 +87,9 @@ void parse_args(int argc, char *argv[])
             case COPY_MODE:
                 config.copy_mode = XDP_COPY;
                 break;
+            case SKB_MODE:
+                config.xdp_mode = XDP_FLAGS_SKB_MODE;
+                break;
             default:
                 ERROR("Unknown: argument!\n");
                 exit(EXIT_FAILURE);
@@ -108,18 +115,26 @@ void parse_args(int argc, char *argv[])
     config.num_frames = (config.rx_size + config.tx_size) * 4;
 
     if(config.busy_poll){
-        printf("BUSY POLLING\n");
+        INFO("BUSY POLLING\n");
     }
     if (config.copy_mode == XDP_ZEROCOPY) {
-        printf("Running in ZEROCOPY mode!\n");
+        INFO("Running in ZEROCOPY mode!\n");
     } else if (config.copy_mode == XDP_COPY) {
-        printf("Running in COPY mode!\n");
+        INFO("Running in COPY mode!\n");
     } else {
-        fprintf(stderr, "Copy mode was not detected!\n");
+        ERROR( "AF_XDP mode was not detected!\n");
         exit(EXIT_FAILURE);
     }
-    printf("Batch Size: %d\n", config.batch_size);
-    printf("Rx Ring Size: %d\n", config.rx_size);
-    printf("Tx Ring Size: %d\n", config.tx_size);
+    if (config.xdp_mode == XDP_FLAGS_DRV_MODE) {
+      INFO("Running XDP in NATIVE mode\n");
+    } else if (config.xdp_mode == XDP_FLAGS_SKB_MODE) {
+      INFO("Running XDP in SKB mode\n");
+    } else {
+      ERROR("Unexpected XDP mode\n");
+      exit(EXIT_FAILURE);
+    }
+    INFO("Batch Size: %d\n", config.batch_size);
+    INFO("Rx Ring Size: %d\n", config.rx_size);
+    INFO("Tx Ring Size: %d\n", config.tx_size);
 }
 

@@ -81,8 +81,7 @@ setup_socket(char *ifname, uint32_t qid)
         } else {
             cfg.libbpf_flags = 0;
         }
-        cfg.xdp_flags = XDP_FLAGS_UPDATE_IF_NOEXIST | XDP_FLAGS_DRV_MODE;
-        // cfg.bind_flags = config.copy_mode | XDP_USE_NEED_WAKEUP;
+        cfg.xdp_flags = XDP_FLAGS_UPDATE_IF_NOEXIST | config.xdp_mode;
         cfg.bind_flags = config.copy_mode;
         ret = xsk_socket__create(&xsk->xsk, ifname, qid,
                 umem->umem, &xsk->rx, &xsk->tx, &cfg);

@@ -1,5 +1,5 @@
 CC = clang-11
-CFLAGS =
+CFLAGS = -g
 LDFLAGS = -lbpf -lm -lpthread
 
 OBJS = servant.o sockets.o heart.o config.o service_stats.o log.o
