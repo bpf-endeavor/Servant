@@ -22,6 +22,7 @@
 #include "defs.h"   // af_xdp structs
 #include "log.h"
 #include "heart.h"
+#include "brain.h"
 
 
 static void int_exit() {
@@ -53,11 +54,16 @@ int main(int argc, char *argv[])
     /* pthread_t report_thread; */
     /* pthread_create(&report_thread, NULL, report, (void *)xsk); */
 
+    // Setup eBPF engine
+    struct ubpf_vm *vm;
+    setup_ubpf_engine(config.ebpf_program_path, &vm);
+
     // Poll the socket and send receive packets to eBPF engine
-    pump_packets(xsk);
+    pump_packets(xsk, vm);
 
     // Clean up
     /* pthread_join(report_thread, NULL); */
+    ubpf_destroy(vm);
     tear_down_socket(xsk);
     INFO("Done!\n");
     return 0;

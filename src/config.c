@@ -8,17 +8,20 @@
 
 #include "config.h"
 #include "log.h"
+
+#define REQUIRED_ARGUMENTS 3
  
 struct config config = {};
 
 void usage(char *prog_name)
 {
-    const char desc[] = ("Usage: %s [--Options] <ifname> <qid>\n"
-            "*\t ifname: name of interface to attach to\n"
-            "*\t qid:    number of queue to attach to\n"
+    const char desc[] = ("Usage: %s [--Options] <ifname> <qid> <eBPF>\n"
+            "*\t ifname:  name of interface to attach to\n"
+            "*\t qid:     number of queue to attach to\n"
+            "*\t eBPF:    path to eBPF program\n"
             "Options:\n"
             "\t num-frames, frame-size, batch-size,rx-size, tx-size,\n"
-            "\t copy-mode, skb-mode, rps\n"
+            "\t copy-mode, skb-mode, rps, no-jit\n"
             );
     printf(desc, prog_name);
 }
@@ -39,6 +42,7 @@ void parse_args(int argc, char *argv[])
     config.copy_mode = XDP_ZEROCOPY;
     config.xdp_mode = XDP_FLAGS_DRV_MODE;
     // config.copy_mode = XDP_COPY;
+    config.jitted = 1;
     config.custom_kern_prog = 0;
     config.custom_kern_path = NULL;
 
@@ -50,6 +54,7 @@ void parse_args(int argc, char *argv[])
         TX_SIZE,
         COPY_MODE,
         SKB_MODE,
+        NO_JIT,
     };
     struct option long_opts[] = {
         {"num-frames", required_argument, NULL, NUM_FRAMES},
@@ -59,6 +64,7 @@ void parse_args(int argc, char *argv[])
         {"tx-size", required_argument, NULL, TX_SIZE},
         {"copy-mode", no_argument, NULL, COPY_MODE},
         {"skb-mode", no_argument, NULL, SKB_MODE},
+        {"no-jit", no_argument, NULL, NO_JIT},
     };
     int ret;
     char optstring[] = "";
@@ -90,13 +96,16 @@ void parse_args(int argc, char *argv[])
             case SKB_MODE:
                 config.xdp_mode = XDP_FLAGS_SKB_MODE;
                 break;
+            case NO_JIT:
+                config.jitted = 0;
+                break;
             default:
                 ERROR("Unknown: argument!\n");
                 exit(EXIT_FAILURE);
                 break;
         }
     }
-    if (argc - optind < 2) {
+    if (argc - optind < REQUIRED_ARGUMENTS) {
         usage(argv[0]);
         exit(EXIT_FAILURE);
     }
@@ -109,6 +118,8 @@ void parse_args(int argc, char *argv[])
     }
     optind++;
     config.qid = atoi(argv[optind]);
+    optind++;
+    config.ebpf_program_path = argv[optind];
     optind++;
 
     // How many descriptors are needed

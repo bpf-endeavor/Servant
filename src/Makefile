@@ -1,10 +1,10 @@
 CC = clang-11
-CFLAGS = -g
-LDFLAGS = -lbpf -lm -lpthread
+CFLAGS = -g -O2 -Wall
+LDFLAGS = -lbpf -lubpf -lm -lpthread
 
-OBJS = servant.o sockets.o heart.o config.o service_stats.o log.o
+OBJS = servant.o sockets.o heart.o brain.o config.o service_stats.o log.o
 HEADERS = $(wildcard ./*.h)
-$(info $(HEADERS))
+# $(info $(HEADERS))
 
 all: servant
 
@@ -12,7 +12,7 @@ all: servant
 	$(CC) $(CCFLAGS) -c -o $@ $<
 
 servant: $(OBJS)
-	$(CC) $(LDFLAGS) $(OBJS) -o servant
+	$(CC) $(OBJS) -o servant $(LDFLAGS)
 
 clean:
-	rm -f *.o servant
+	rm -f $(OBJS) servant

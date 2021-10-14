@@ -5,6 +5,7 @@
 #include <stdlib.h> // exit
 #include "config.h"
 #include "heart.h"
+#include "brain.h"
 #include "log.h"
 
 /**
@@ -82,6 +83,13 @@ uint32_t drop(struct xsk_socket_info *xsk, struct xdp_desc **batch, uint32_t cnt
     return cnt;
 }
 
+void
+apply_action(struct xsk_socket_info *xsk, struct xdp_desc *desc, int action)
+{
+	// TODO: Implement the list of actions (DROP, TX, ...)
+	drop(xsk, &desc, 1);
+}
+
 /**
  * Poll rx queue of the socket and send received packets to eBPF engine
  *
@@ -89,7 +97,9 @@ uint32_t drop(struct xsk_socket_info *xsk, struct xdp_desc **batch, uint32_t cnt
  *
  * @param xsk Socket to be polled.
  */
-void pump_packets(struct xsk_socket_info *xsk) {
+void
+pump_packets(struct xsk_socket_info *xsk, struct ubpf_vm *vm)
+{
     uint32_t rx;
     const uint32_t cnt = config.batch_size;
     struct xdp_desc *batch[cnt];
@@ -102,9 +112,18 @@ void pump_packets(struct xsk_socket_info *xsk) {
             continue;
         /* DEBUG("Rx: %d\n", rx); */
 
-        // Pass to brain
         // TODO: there is no brain yet!
-        drop(xsk, batch, rx);
+        // drop(xsk, batch, rx);
+
+        // Pass to brain
+	for (int i = 0; i < rx; i++) {
+		uint64_t addr = batch[i]->addr;
+		addr = xsk_umem__add_offset_to_addr(addr);
+		size_t ctx_len = batch[i]->len;
+		void *ctx = xsk_umem__get_data(xsk->umem->buffer, addr);
+		int ret = run_vm(vm, ctx, ctx_len);
+		apply_action(xsk, batch[i], ret);
+	}
     }
 }
 

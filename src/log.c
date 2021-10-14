@@ -9,17 +9,18 @@ void msg(enum log_level level, const char *func, const char *file, int line,
   va_list args;
   va_start(args, fmt);
   char message[MAX_LOG_MESSAGE_SIZE + 1];
+  vsnprintf(message, MAX_LOG_MESSAGE_SIZE, fmt, args);
   char *str_lvl;
   if (level == LVL_INFO) {
     str_lvl = "INFO";
+    dprintf(_output_log_fd, "%s", (char *)message);
   } else if (level == LVL_DEBUG) {
     str_lvl = "DEBUG";
+    dprintf(_output_log_fd, "[%s] %s(%s:%d): %s", str_lvl, func, file, line, (char *)message);
   } else {
     str_lvl = "ERROR";
+    dprintf(_output_log_fd, "[%s] %s(%s:%d): %s", str_lvl, func, file, line, (char *)message);
   }
-
-  vsnprintf(message, MAX_LOG_MESSAGE_SIZE, fmt, args);
-  dprintf(_output_log_fd, "[%s] %s(%s:%d): %s", str_lvl, func, file, line, (char *)message);
   va_end(args);
 }
 
