@@ -8,6 +8,15 @@ Servant is a runtime that allows to write AF\_XDP application using eBPF. It use
 * libbpf
 
 
+### Install uBPF
+
+```
+git clone ssh://git@fyro.ir:10022/fshahinfar1/uBPF.git
+cd ubpf/src
+make
+sudo make install
+```
+
 ### Installing libbpf
 
 ```
@@ -15,12 +24,14 @@ Servant is a runtime that allows to write AF\_XDP application using eBPF. It use
 sudo apt intall pkg_config libz-dev libelf-dev
 # Getting and compiling the libbpf
 git clone https://github.com/libbpf/libbpf
+cd libbpf
 git checkout f9f6e92458899fee5d3d6c62c645755c25dd502d
-cd libbpf/src
+cd src
 mkdir build
 make all OBJDIR=.
 # make install_headers DESTDIR=build OBJDIR=.
 make install DESTDIR=build OBJDIR=.
+sudo make install
 ```
 
 **Issues with libbpf:**
