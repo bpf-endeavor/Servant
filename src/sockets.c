@@ -1,4 +1,5 @@
 #include <stdlib.h> // exit
+#include <string.h> // strerror
 #include <sys/mman.h> // mmap
 #include <linux/if_link.h> // some XDP flags
 
@@ -104,10 +105,6 @@ setup_socket(char *ifname, uint32_t qid)
         }
         xsk_ring_prod__submit(&umem->fq, fill_size);
     }
-    // If needed load custom XDP prog
-    if (config.custom_kern_prog) {
-        load_xdp_program(config.custom_kern_path, config.ifindex);
-    }
 
     // Create socket
     {
@@ -130,7 +127,7 @@ setup_socket(char *ifname, uint32_t qid)
         ret = xsk_socket__create(&xsk->xsk, ifname, qid,
                 umem->umem, &xsk->rx, &xsk->tx, &cfg);
         if (ret) {
-            ERROR("Creating socket failed!\n");
+            ERROR("Creating socket failed! (%s)\n", strerror(-ret));
             ERROR("Mellanox and ZEROCOPY does not work well (need configuration)!\n");
             ERROR("Netronome and ZEROCOPY does not work well!\n");
             exit(EXIT_FAILURE);

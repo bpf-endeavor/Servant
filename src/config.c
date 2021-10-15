@@ -21,7 +21,7 @@ void usage(char *prog_name)
             "*\t eBPF:    path to eBPF program\n"
             "Options:\n"
             "\t num-frames, frame-size, batch-size,rx-size, tx-size,\n"
-            "\t copy-mode, skb-mode, rps, no-jit\n"
+            "\t copy-mode, skb-mode, xdp-prog, no-jit\n"
             );
     printf(desc, prog_name);
 }
@@ -54,6 +54,7 @@ void parse_args(int argc, char *argv[])
         TX_SIZE,
         COPY_MODE,
         SKB_MODE,
+        XDP_PROG,
         NO_JIT,
     };
     struct option long_opts[] = {
@@ -64,6 +65,7 @@ void parse_args(int argc, char *argv[])
         {"tx-size", required_argument, NULL, TX_SIZE},
         {"copy-mode", no_argument, NULL, COPY_MODE},
         {"skb-mode", no_argument, NULL, SKB_MODE},
+        {"xdp-prog", required_argument, NULL, XDP_PROG},
         {"no-jit", no_argument, NULL, NO_JIT},
     };
     int ret;
@@ -95,6 +97,10 @@ void parse_args(int argc, char *argv[])
                 break;
             case SKB_MODE:
                 config.xdp_mode = XDP_FLAGS_SKB_MODE;
+                break;
+            case XDP_PROG:
+                config.custom_kern_prog = 1;
+                config.custom_kern_path = optarg;
                 break;
             case NO_JIT:
                 config.jitted = 0;
@@ -143,6 +149,11 @@ void parse_args(int argc, char *argv[])
     } else {
       ERROR("Unexpected XDP mode\n");
       exit(EXIT_FAILURE);
+    }
+    if (config.custom_kern_prog) {
+	    INFO("Using custom XDP program %s\n", config.custom_kern_path);
+    } else {
+	    INFO("Using builting XDP program for AF_XDP\n");
     }
     INFO("Batch Size: %d\n", config.batch_size);
     INFO("Rx Ring Size: %d\n", config.rx_size);
