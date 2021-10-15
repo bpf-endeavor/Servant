@@ -4,6 +4,8 @@
 #include <stdint.h>
 #include <net/if.h> // if_nametoindex
 
+#include "labels.h"
+
 struct config {
     int terminate;
     // Ring Configuration
@@ -22,6 +24,7 @@ struct config {
     uint32_t busy_poll_duration;
     uint32_t batch_size;
     int copy_mode;
+    // XDP Configuration
     int xdp_mode;
     // uBPF Engine Config
     char *ebpf_program_path;

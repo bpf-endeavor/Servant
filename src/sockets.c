@@ -6,6 +6,51 @@
 #include "config.h"
 #include "log.h"
 
+
+// TODO (Farbod): xdp_flags might be broken to a constant part that is globally
+// defined and a dynamic part in the config. Currently the knowledge is shared
+// between the function using it.
+
+
+int
+load_xdp_program(char *xdp_filename, int ifindex)
+{
+	int xdp_flags = XDP_FLAGS_UPDATE_IF_NOEXIST | config.xdp_mode;
+	uint32_t prog_id;
+	int ret;
+	ret = bpf_get_link_xdp_id(ifindex, &prog_id, xdp_flags);
+	if (ret < 0) {
+		ERROR("Failed to get link program id\n");
+	} else {
+		if (prog_id > 0) {
+			INFO("There is already a loaded XDP (id: %d)\n", prog_id);
+			// load_maps();
+			return 1;
+		}
+	}
+	struct bpf_prog_load_attr prog_load_attr = {
+		.prog_type      = BPF_PROG_TYPE_XDP,
+		.file           = xdp_filename,
+	};
+	int prog_fd;
+	UNUSED struct bpf_object *obj;
+	if (bpf_prog_load_xattr(&prog_load_attr, &obj, &prog_fd)) {
+		ERROR("Failed to load custom xdp prog (%s)\n", xdp_filename);
+		exit(EXIT_FAILURE);
+	}
+	if (prog_fd < 0) {
+		ERROR("no program found: %s\n", strerror(prog_fd));
+		exit(EXIT_FAILURE);
+	}
+	if (bpf_set_link_xdp_fd(ifindex, prog_fd, xdp_flags) < 0) {
+		ERROR("link set XDP fd failed\n");
+		INFO("Warning: probably program is already attached but if not"
+				"error handling has not been done!\n");
+		// exit(EXIT_FAILURE);
+	}
+	return 0;
+}
+
 struct xsk_socket_info *
 setup_socket(char *ifname, uint32_t qid)
 {
@@ -59,18 +104,17 @@ setup_socket(char *ifname, uint32_t qid)
         }
         xsk_ring_prod__submit(&umem->fq, fill_size);
     }
-    // TODO: I think, Servant should not load the xdp program.
-    /* // If needed load custom XDP prog */
-    /* if (config.custom_kern_prog) { */
-    /*     load_xdp_program(config.custom_kern_path, config.ifindex, &xdp_obj); */
-    /* } */
+    // If needed load custom XDP prog
+    if (config.custom_kern_prog) {
+        load_xdp_program(config.custom_kern_path, config.ifindex);
+    }
 
     // Create socket
     {
         struct xsk_socket_config cfg;
         xsk = calloc(1, sizeof(struct xsk_socket_info));
         if (!xsk) {
-            printf("ERROR: allocating socket!\n");
+            ERROR("ERROR: allocating socket!\n");
             exit(EXIT_FAILURE);
         }
         xsk->umem = umem;
@@ -114,7 +158,6 @@ setup_socket(char *ifname, uint32_t qid)
     /*     enter_xsks_into_map(xdp_obj, xsk, rps_index); */
     /* } */
     return xsk;
-
 }
 
 void
