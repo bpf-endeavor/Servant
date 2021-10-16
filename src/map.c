@@ -8,10 +8,9 @@
 #include "log.h"
 
 
-#define MAX_NR_MAPS  10
 // TODO (Farbod): Should I use a hash map data structure?
-char *map_names[MAX_NR_MAPS];
-int map_fds[MAX_NR_MAPS];
+char *map_names[MAX_NR_MAPS] = {};
+int map_fds[MAX_NR_MAPS] = {};
 
 
 int
@@ -48,7 +47,26 @@ setup_map_system(int ifindex)
 		int map_fd = bpf_map_get_fd_by_id(map_ids[i]);
 		bpf_obj_get_info_by_fd(map_fd, &map_info, &info_size);
 		INFO("* %d: map id: %ld map name: %s\n", i, map_ids[i], map_info.name); 
+		map_fds[i] = map_fd;
+		map_names[i] = strdup(map_info.name);
 	}
 	return 0;
+}
+
+int
+ubpf_map_lookup_elem(char *map_name, const void *key_ptr, OUT void *buffer)
+{
+	int fd = -1;
+	for (int i = 0; i < MAX_NR_MAPS; i++) {
+		if (map_names[i] == NULL) {
+			// List finished and did not found the FD of the map
+			return 1;
+		} else if (!strcmp(map_names[i], map_name)) {
+			// Found the map by its name
+			fd = map_fds[i];
+			break;
+		}
+	}
+	return bpf_map_lookup_elem(fd, key_ptr, buffer);
 }
 
