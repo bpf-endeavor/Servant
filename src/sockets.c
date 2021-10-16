@@ -6,6 +6,7 @@
 #include "sockets.h"
 #include "config.h"
 #include "log.h"
+#include "map.h"
 
 
 // TODO (Farbod): xdp_flags might be broken to a constant part that is globally
@@ -168,4 +169,17 @@ tear_down_socket(struct xsk_socket_info *xsk)
     free(xsk);
 }
 
-
+int
+enter_xsks_into_map( struct xsk_socket_info *xsk, int qid)
+{
+	if (qid < 0 || qid > MAX_QID)
+		return 1;
+	int fd = xsk_socket__fd(xsk->xsk);
+	int ret = ubpf_map_update_elem("xsks_map", &qid, &fd, 0);
+	if (ret) {
+		ERROR("ERROR: bpf_map_update_elem %d\n", qid);
+		return ret;
+	}
+	INFO("Add socket to xsks_map index %d\n", qid);
+	return 0;
+}

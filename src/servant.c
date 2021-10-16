@@ -41,6 +41,7 @@ static void setRlimit()
 
 int main(int argc, char *argv[])
 {
+    int ret;
     parse_args(argc, argv);
     setRlimit();
 
@@ -50,6 +51,10 @@ int main(int argc, char *argv[])
     }
     struct xsk_socket_info *xsk = setup_socket(config.ifname, config.qid);
     setup_map_system(config.ifindex);
+    if (config.custom_kern_prog) {
+        // enter XSK to the map for receiving traffic
+        enter_xsks_into_map(xsk, config.qid);
+    }
 
     // Add interrupt handler
     signal(SIGINT,  int_exit);
@@ -62,7 +67,10 @@ int main(int argc, char *argv[])
 
     // Setup eBPF engine
     struct ubpf_vm *vm;
-    setup_ubpf_engine(config.ebpf_program_path, &vm);
+    ret = setup_ubpf_engine(config.ebpf_program_path, &vm);
+    if (ret) {
+        goto teardown;
+    }
 
     // Poll the socket and send receive packets to eBPF engine
     pump_packets(xsk, vm);
@@ -70,6 +78,7 @@ int main(int argc, char *argv[])
     // Clean up
     /* pthread_join(report_thread, NULL); */
     ubpf_destroy(vm);
+teardown:
     if (config.custom_kern_prog) {
         // Remove XDP program
         int xdp_flags = XDP_FLAGS_UPDATE_IF_NOEXIST | config.xdp_mode;

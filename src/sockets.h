@@ -1,6 +1,9 @@
 #ifndef SOCKETS_H
 #define SOCKETS_H
 #include "defs.h"
+
+#define MAX_QID 63 
+
 /**
  * Create a new socket, allocate a new umem and setup queues
  *
@@ -24,4 +27,18 @@ void tear_down_socket(struct xsk_socket_info *xsk);
  * @return Returns zero on success.
  */
 int load_xdp_program(char *xdp_filename, int ifindex);
+
+/** 
+ * Add xsk socket to the xsks_map so that XDP redirect
+ * packets to this socket.
+ *
+ * Note: Expects the XDP program to have a map named "xsks_map" that is used for
+ * redirecting traffic to AF_XDP.
+ *
+ * @param xsk Socket that is added to the map (receiving traffic on qid).
+ * @param qid Rx-queue number that this socket is connected to.
+ *
+ * @return Returns zero on success.
+ */
+int enter_xsks_into_map( struct xsk_socket_info *xsk, int qid);
 #endif

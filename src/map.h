@@ -18,12 +18,23 @@ extern int map_fds[MAX_NR_MAPS];
  *
  * @param map_name Name of the map being used (in XDP programs it is the
  * refrence to the map).
- * @param key_ptr A ptr to the key object (same as XDP program).
- * @param buffer  A ptr to the buffer into which result will be copied.
+ * @param key_ptr A pointer to the key object (same as XDP program).
+ * @param buffer  A pointer to the buffer into which result will be copied.
  * @return Returns zero on success
  */
-int ubpf_map_lookup_elem(char *map_name, const void *key_ptr, OUT void
-		*buffer);
+int ubpf_map_lookup_elem(char *map_name, const void *key_ptr,
+		OUT void *buffer);
+
+/**
+ * @param map_name Name of the map being used (in XDP programs it is the
+ * refrence to the map).
+ * @param key_ptr A pointer to the key object (same as XDP program).
+ * @param value A pointer to value object.
+ * @param flag Flags used for update operation.
+ * @return Returns zero on success
+ */
+int ubpf_map_update_elem(char *map_name, const void *key_ptr, void *value,
+		int flag);
 
 /**
  * The XDP program should be bind to the interface first.

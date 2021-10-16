@@ -6,6 +6,7 @@
 #include "brain.h"
 #include "log.h"
 #include "config.h"
+#include "map.h"
 
 static uint64_t
 unwind(uint64_t i)
@@ -13,14 +14,23 @@ unwind(uint64_t i)
     return i;
 }
 
+/* static uint32_t */
+/* sqrti(uint32_t x) */
+/* { */
+/*     return sqrt(x); */
+/* } */
+
+
 /**
  * Register the supported functions in the virtual machine
  */
 static void
 register_engine_functions(struct ubpf_vm *vm)
 {
-	ubpf_register(vm, 0, "unwind", unwind);
-	ubpf_set_unwind_function_index(vm, 0);
+	ubpf_register(vm, 1, "ubpf_map_lookup_elem", ubpf_map_lookup_elem);
+	ubpf_register(vm, 2, "ubpf_map_update_elem", ubpf_map_update_elem);
+	ubpf_register(vm, 3, "unwind", unwind);
+	ubpf_set_unwind_function_index(vm, 3);
 }
  
 /**
@@ -83,6 +93,7 @@ setup_ubpf_engine(char *program_path, struct ubpf_vm **_vm)
 		return 1;
 	}
 	register_engine_functions(vm);
+	ubpf_toggle_bounds_check(vm, false);
 	/*
 	 * The ELF magic corresponds to an RSH instruction with an offset,
 	 * which is invalid.

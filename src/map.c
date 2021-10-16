@@ -53,20 +53,39 @@ setup_map_system(int ifindex)
 	return 0;
 }
 
-int
-ubpf_map_lookup_elem(char *map_name, const void *key_ptr, OUT void *buffer)
+/**
+ * @return Returns non-zero value on success.
+ */
+static int
+_get_map_fd(char *map_name)
 {
-	int fd = -1;
 	for (int i = 0; i < MAX_NR_MAPS; i++) {
 		if (map_names[i] == NULL) {
 			// List finished and did not found the FD of the map
-			return 1;
+			return 0;
 		} else if (!strcmp(map_names[i], map_name)) {
 			// Found the map by its name
-			fd = map_fds[i];
-			break;
+			return map_fds[i];
 		}
 	}
+	return 0;
+}
+
+int
+ubpf_map_lookup_elem(char *map_name, const void *key_ptr, OUT void *buffer)
+{
+	int fd = _get_map_fd(map_name);
+	if (!fd)
+		return 1;
 	return bpf_map_lookup_elem(fd, key_ptr, buffer);
+}
+
+int
+ubpf_map_update_elem(char *map_name, const void *key_ptr, void *value, int flag)
+{
+	int fd = _get_map_fd(map_name);
+	if (!fd)
+		return 1;
+	return bpf_map_update_elem(fd, key_ptr, value, flag);
 }
 
