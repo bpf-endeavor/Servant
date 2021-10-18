@@ -46,7 +46,7 @@ int main(int argc, char *argv[])
     setRlimit();
 
     // If needed load custom XDP prog
-    if (config.custom_kern_prog) {
+    if (config.custom_kern_prog && config.custom_kern_path[0] != '-') {
         load_xdp_program(config.custom_kern_path, config.ifindex);
     }
     struct xsk_socket_info *xsk = setup_socket(config.ifname, config.qid);
