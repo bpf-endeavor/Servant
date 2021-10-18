@@ -7,6 +7,7 @@
 #include "heart.h"
 #include "brain.h"
 #include "log.h"
+#include "include/servant_engine.h"
 
 /**
  * Read descriptors from Rx queue
@@ -121,7 +122,11 @@ pump_packets(struct xsk_socket_info *xsk, struct ubpf_vm *vm)
 		addr = xsk_umem__add_offset_to_addr(addr);
 		size_t ctx_len = batch[i]->len;
 		void *ctx = xsk_umem__get_data(xsk->umem->buffer, addr);
-		int ret = run_vm(vm, ctx, ctx_len);
+		struct pktctx pktctx = {
+			.data = ctx,
+			.data_end = ctx + ctx_len,
+		};
+		int ret = run_vm(vm, &pktctx, sizeof(pktctx));
 		apply_action(xsk, batch[i], ret);
 	}
     }

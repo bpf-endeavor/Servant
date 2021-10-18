@@ -12,6 +12,7 @@
  */
 extern char *map_names[MAX_NR_MAPS];
 extern int map_fds[MAX_NR_MAPS];
+extern unsigned int map_value_size[MAX_NR_MAPS];
 
 /**
  * Tries to implement the bpf_map_lookup_elem semantic. in uBPF environment.
@@ -19,11 +20,18 @@ extern int map_fds[MAX_NR_MAPS];
  * @param map_name Name of the map being used (in XDP programs it is the
  * refrence to the map).
  * @param key_ptr A pointer to the key object (same as XDP program).
- * @param buffer  A pointer to the buffer into which result will be copied.
- * @return Returns zero on success
+ * @return Returns pointer to the value. In case of failure returns NULL.
  */
-int ubpf_map_lookup_elem(char *map_name, const void *key_ptr,
-		OUT void *buffer);
+void *ubpf_map_lookup_elem(char *map_name, const void *key_ptr);
+
+/* int ubpf_map_lookup_elem(char *map_name, const void *key_ptr, */
+/* 		OUT void *buffer); */
+
+/**
+ * Free the memory allocated for map lookup result.
+ * @param ptr pointer to map elem to be freed
+ */
+void ubpf_map_elem_release(void *ptr);
 
 /**
  * @param map_name Name of the map being used (in XDP programs it is the

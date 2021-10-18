@@ -11,6 +11,7 @@
 // TODO (Farbod): Should I use a hash map data structure?
 char *map_names[MAX_NR_MAPS] = {};
 int map_fds[MAX_NR_MAPS] = {};
+unsigned int map_value_size[MAX_NR_MAPS];
 
 
 int
@@ -49,6 +50,7 @@ setup_map_system(int ifindex)
 		INFO("* %d: map id: %ld map name: %s\n", i, map_ids[i], map_info.name); 
 		map_fds[i] = map_fd;
 		map_names[i] = strdup(map_info.name);
+		map_value_size[i] = map_info.value_size;
 	}
 	return 0;
 }
@@ -70,14 +72,48 @@ _get_map_fd(char *map_name)
 	}
 	return 0;
 }
-
-int
-ubpf_map_lookup_elem(char *map_name, const void *key_ptr, OUT void *buffer)
+ 
+static int
+_get_map_fd_and_idx(char *map_name, int *idx)
 {
-	int fd = _get_map_fd(map_name);
-	if (!fd)
-		return 1;
-	return bpf_map_lookup_elem(fd, key_ptr, buffer);
+	for (int i = 0; i < MAX_NR_MAPS; i++) {
+		if (map_names[i] == NULL) {
+			// List finished and did not found the FD of the map
+			return 0;
+		} else if (!strcmp(map_names[i], map_name)) {
+			// Found the map by its name
+			*idx = i;
+			return map_fds[i];
+		}
+	}
+	return 0;
+}
+
+void *
+ubpf_map_lookup_elem(char *map_name, const void *key_ptr)
+{
+	int idx;
+	int fd = _get_map_fd_and_idx(map_name, &idx);
+	if (!fd) {
+		return NULL;
+	}
+	void *buffer = malloc(map_value_size[idx]);
+	if (!buffer) {
+		return NULL;
+	}
+	// copies value form kernel to the buffer
+	int ret = bpf_map_lookup_elem(fd, key_ptr, buffer);
+	if (ret) {
+		free(buffer);
+		return NULL;
+	}
+	return buffer;
+}
+
+void
+ubpf_map_elem_release(void *ptr)
+{
+	free(ptr);
 }
 
 int

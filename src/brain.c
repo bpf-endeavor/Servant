@@ -29,8 +29,9 @@ register_engine_functions(struct ubpf_vm *vm)
 {
 	ubpf_register(vm, 1, "ubpf_map_lookup_elem", ubpf_map_lookup_elem);
 	ubpf_register(vm, 2, "ubpf_map_update_elem", ubpf_map_update_elem);
-	ubpf_register(vm, 3, "unwind", unwind);
-	ubpf_set_unwind_function_index(vm, 3);
+	ubpf_register(vm, 3, "ubpf_map_elem_release", ubpf_map_elem_release);
+	ubpf_register(vm, 4, "unwind", unwind);
+	ubpf_set_unwind_function_index(vm, 4);
 }
  
 /**

@@ -1,16 +1,15 @@
 #include <stdint.h>
+#include "../../src/include/servant_engine.h"
 
-static int (*lookup)(char *name, const void *key, void *val) = (void *)1;
-
-uint32_t bpf_prog(void *argv)
+int bpf_prog(void *argv)
 {
+	int ret = -1;
 	const int zero = 0;
-	uint32_t value;
 	char map_name[32] = "test_map";
-	int ret = lookup((char *)(&map_name[0]), &zero, &value);
-	if (!ret) {
-		return value;
-	} else {
-		return 1111;
+	int *value = lookup((char *)(&map_name[0]), &zero);
+	if (value != 0) {
+		ret = *value;
+		free_elem(value);
 	}
+	return ret;
 }
