@@ -1,5 +1,5 @@
-LLC = llc-11
-CLANG = clang-11
+LLC = llc-9
+CLANG = clang-9
 UBPF_OBJ = ubpf.o
 XDP_OBJ = xdp.o
 
