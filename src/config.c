@@ -47,7 +47,8 @@ void parse_args(int argc, char *argv[])
     config.custom_kern_path = NULL;
 
     enum opts {
-        NUM_FRAMES = 100,
+        HELP = 100,
+        NUM_FRAMES,
         FRAME_SIZE,
         BATCH_SIZE,
         RX_SIZE,
@@ -58,6 +59,7 @@ void parse_args(int argc, char *argv[])
         NO_JIT,
     };
     struct option long_opts[] = {
+        {"help", no_argument, NULL, HELP},
         {"num-frames", required_argument, NULL, NUM_FRAMES},
         {"frame-size", required_argument, NULL, FRAME_SIZE},
         {"batch-size", required_argument, NULL, BATCH_SIZE},
@@ -105,7 +107,11 @@ void parse_args(int argc, char *argv[])
             case NO_JIT:
                 config.jitted = 0;
                 break;
+            case HELP:
+                usage(argv[0]);
+                exit(0);
             default:
+                usage(argv[0]);
                 ERROR("Unknown: argument!\n");
                 exit(EXIT_FAILURE);
                 break;
