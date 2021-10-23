@@ -25,8 +25,9 @@ setup_map_system(int ifindex)
 	if (ret < 0) {
 		ERROR("Failed to get link program id\n");
 	} else {
-		if (prog_id < 0) {
-			INFO("Setup Map System: No XDP program found (id: %d)\n", prog_id);
+		if (!prog_id) {
+			INFO("Setup Map System: No XDP program found!\n",
+					prog_id);
 			return 1;
 		}
 	}

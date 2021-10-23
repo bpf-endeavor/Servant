@@ -50,7 +50,9 @@ int main(int argc, char *argv[])
         load_xdp_program(config.custom_kern_path, config.ifindex);
     }
     struct xsk_socket_info *xsk = setup_socket(config.ifname, config.qid);
-    setup_map_system(config.ifindex);
+    ret = setup_map_system(config.ifindex);
+    if (ret)
+        goto teardown;
     if (config.custom_kern_prog) {
         // enter XSK to the map for receiving traffic
         ret = enter_xsks_into_map(xsk, config.qid);
