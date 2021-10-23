@@ -53,7 +53,10 @@ int main(int argc, char *argv[])
     setup_map_system(config.ifindex);
     if (config.custom_kern_prog) {
         // enter XSK to the map for receiving traffic
-        enter_xsks_into_map(xsk, config.qid);
+        ret = enter_xsks_into_map(xsk, config.qid);
+        if (ret) {
+            goto teardown;
+        }
     }
 
     // Add interrupt handler
