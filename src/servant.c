@@ -84,10 +84,11 @@ int main(int argc, char *argv[])
     /* pthread_join(report_thread, NULL); */
     ubpf_destroy(vm);
 teardown:
-    if (config.custom_kern_prog) {
+    if (config.custom_kern_prog && config.custom_kern_path[0] != '-') {
         // Remove XDP program
         int xdp_flags = XDP_FLAGS_UPDATE_IF_NOEXIST | config.xdp_mode;
         bpf_set_link_xdp_fd(config.ifindex, -1, xdp_flags);
+        INFO("Unlinked XDP program\n");
     }
     tear_down_socket(xsk);
     INFO("Done!\n");
