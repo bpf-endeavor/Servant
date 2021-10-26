@@ -6,13 +6,14 @@ Servant is a runtime that allows to write AF\_XDP application using eBPF. It use
 
 * uBPF (Link to custom version)
 * libbpf
+* gcc-multilib (I am not sure why it is needed when compiling examples)
 
 
 ### Install uBPF
 
 ```bash
 git clone ssh://git@fyro.ir:10022/fshahinfar1/uBPF.git
-cd ubpf/src
+cd uBPF/vm
 make
 sudo make install
 ```
@@ -21,7 +22,7 @@ sudo make install
 
 ```bash
 # Some dependencies you might need
-sudo apt intall pkg_config libz-dev libelf-dev
+sudo apt install pkg_config libz-dev libelf-dev
 # Getting and compiling the libbpf
 git clone https://github.com/libbpf/libbpf
 cd libbpf

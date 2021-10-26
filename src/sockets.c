@@ -177,7 +177,7 @@ enter_xsks_into_map( struct xsk_socket_info *xsk, int qid)
 	int fd = xsk_socket__fd(xsk->xsk);
 	int ret = ubpf_map_update_elem("xsks_map", &qid, &fd, 0);
 	if (ret) {
-		ERROR("ERROR: bpf_map_update_elem %d\n", qid);
+		ERROR("ERROR: bpf_map_update_elem %d (%s)\n", qid, strerror(ret));
 		return ret;
 	}
 	INFO("Add socket to xsks_map index %d\n", qid);
