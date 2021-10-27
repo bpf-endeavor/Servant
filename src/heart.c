@@ -3,11 +3,73 @@
  * and pumping them to the eBPF engine (Brain)
  */
 #include <stdlib.h> // exit
+#include <sys/socket.h> // sendto
+#include <errno.h>
 #include "config.h"
 #include "heart.h"
 #include "brain.h"
 #include "log.h"
 #include "include/servant_engine.h"
+
+
+static void kick_tx(struct xsk_socket_info *xsk)
+{
+	int ret;
+
+	ret = sendto(xsk_socket__fd(xsk->xsk), NULL, 0, MSG_DONTWAIT, NULL, 0);
+	if (ret >= 0 || errno == ENOBUFS || errno == EAGAIN ||
+			errno == EBUSY || errno == ENETDOWN)
+		return;
+	ERROR("in kick_tx!\n");
+	exit(EXIT_FAILURE);
+}
+
+void complete_tx(struct xsk_socket_info *xsk) {
+	if (!xsk->outstanding_tx)
+		return;
+
+	if (config.copy_mode == XDP_COPY ||
+			xsk_ring_prod__needs_wakeup(&xsk->tx)) {
+		/* xsk->app_stats.copy_tx_sendtos++; */
+		kick_tx(xsk);
+	}
+	size_t ndescs = (xsk->outstanding_tx > config.batch_size) ?
+		config.batch_size : xsk->outstanding_tx;
+
+	uint32_t idx_cq = 0;
+	uint32_t idx_fq = 0;
+
+	/* put back completed Tx descriptors */
+	const uint32_t rcvd = xsk_ring_cons__peek(&xsk->umem->cq, ndescs, &idx_cq);
+	if (rcvd > 0) {
+		unsigned int i;
+		int ret;
+
+		ret = xsk_ring_prod__reserve(&xsk->umem->fq, rcvd, &idx_fq);
+		while (ret != rcvd) {
+			if (ret < 0) {
+				ERROR("Error: [complete_tx: parse.c] reserving fill ring failed\n");
+				exit(EXIT_FAILURE);
+			}
+
+			if (config.busy_poll || xsk_ring_prod__needs_wakeup(&xsk->umem->fq)) {
+				/* xsk->app_stats.fill_fail_polls++; */
+				recvfrom(xsk_socket__fd(xsk->xsk), NULL, 0, MSG_DONTWAIT, NULL,
+						NULL);
+			}
+			ret = xsk_ring_prod__reserve(&xsk->umem->fq, rcvd, &idx_fq);
+		}
+
+		for (i = 0; i < rcvd; i++)
+			*xsk_ring_prod__fill_addr(&xsk->umem->fq, idx_fq++) =
+				*xsk_ring_cons__comp_addr(&xsk->umem->cq, idx_cq++);
+
+		xsk_ring_prod__submit(&xsk->umem->fq, rcvd);
+		xsk_ring_cons__release(&xsk->umem->cq, rcvd);
+		xsk->outstanding_tx -= rcvd;
+		xsk->ring_stats.tx_npkts += rcvd;
+	}
+}
 
 /**
  * Read descriptors from Rx queue
@@ -51,7 +113,7 @@ poll_rx_queue(struct xsk_socket_info *xsk, struct xdp_desc **batch,
 }
 
 /**
- * Places cnt number of packets from socket's rx queue to fill queue
+ * Places cnt number of packets from batch to fill queue
  *
  * @param xsk Socket to work with
  * @param batch The batch of descriptors which are placed into the fill queue
@@ -84,11 +146,52 @@ uint32_t drop(struct xsk_socket_info *xsk, struct xdp_desc **batch, uint32_t cnt
     return cnt;
 }
 
+/**
+ * Places cnt number of packets from batch to tx queue
+ *
+ * @param xsk Socket to work with
+ * @param batch The batch of descriptors
+ * @param cnt The batch size
+ *
+ * @return Number of packets placed into the fill queue. Zero if failed
+ * otherwise it would be equal to cnt.
+ */
+uint32_t tx(struct xsk_socket_info *xsk, struct xdp_desc **batch, uint32_t cnt)
+{
+    uint32_t idx_target = 0;
+    uint32_t i;
+    int ret;
+    ret = xsk_ring_prod__reserve(&xsk->tx, cnt, &idx_target);
+    if (ret != cnt) {
+        if (ret < 0) {
+            ERROR("Failed to reserve packets on fill queue!\n");
+            exit(EXIT_FAILURE);
+        }
+        return 0;
+    }
+
+    for (i = 0; i < cnt; i++) {
+        // Index of descriptors in the umem
+        uint64_t orig = xsk_umem__extract_addr(batch[i]->addr);
+        xsk_ring_prod__tx_desc(&xsk->tx, idx_target)->addr = orig;
+        xsk_ring_prod__tx_desc(&xsk->tx, idx_target)->len = batch[i]->len;
+        idx_target++;
+    }
+    xsk->outstanding_tx += cnt;
+    xsk_ring_prod__submit(&xsk->tx, cnt);
+    return cnt;
+}
+
 void
 apply_action(struct xsk_socket_info *xsk, struct xdp_desc *desc, int action)
 {
+	int ret;
 	// TODO: Implement the list of actions (DROP, TX, ...)
-	drop(xsk, &desc, 1);
+	if (action == SEND) {
+		ret = tx(xsk, &desc, 1);
+	} else {
+		drop(xsk, &desc, 1);
+	}
 }
 
 /**
@@ -108,10 +211,13 @@ pump_packets(struct xsk_socket_info *xsk, struct ubpf_vm *vm)
         if (config.terminate) {
             break;
         }
-        rx = poll_rx_queue(xsk, batch, cnt);
+
+	if (xsk->outstanding_tx > 0) {
+		complete_tx(xsk);
+	}
+	rx = poll_rx_queue(xsk, batch, cnt);
         if (!rx)
             continue;
-        /* DEBUG("Rx: %d\n", rx); */
 
         // TODO: there is no brain yet!
         // drop(xsk, batch, rx);
