@@ -1,4 +1,6 @@
 #include <stdlib.h>
+#include <string.h>
+#include <errno.h>
 #include <linux/if_link.h> // some XDP flags
 #include <bpf/libbpf.h> // bpf_get_link_xdp_id
 #include <bpf/bpf.h> // bpf_prog_get_fd_by_id, bpf_obj_get_info_by_fd, ...
@@ -13,9 +15,45 @@ char *map_names[MAX_NR_MAPS] = {};
 int map_fds[MAX_NR_MAPS] = {};
 unsigned int map_value_size[MAX_NR_MAPS];
 
+int
+setup_map_system(char *names[], int size)
+{
+	if (size > MAX_NR_MAPS) {
+		ERROR("Number of requested maps exceed the limit\n");
+		return 1;
+	}
+	uint32_t id = 0;
+	int ret = 0;
+	struct bpf_map_info map_info = {};
+	uint32_t info_size = sizeof(map_info);
+	uint32_t lastGlobalIndex = 0;
+	while (!ret) {
+		ret = bpf_map_get_next_id(id, &id);
+		if (ret) {
+			if (errno == ENOENT)
+				break;
+			ERROR("can't get next map: %s%s", strerror(errno),
+				errno == EINVAL ? " -- kernel too old?" : "");
+			break;
+		}
+		int map_fd = bpf_map_get_fd_by_id(id);
+		bpf_obj_get_info_by_fd(map_fd, &map_info, &info_size);
+		for (int i = 0; i < size; i++) {
+			if (!strcmp(names[i], map_info.name)) {
+				INFO("* map id: %ld map name: %s\n", id, map_info.name);
+				map_fds[lastGlobalIndex] = map_fd;
+				map_names[lastGlobalIndex] = strdup(map_info.name);
+				map_value_size[lastGlobalIndex] = map_info.value_size;
+				lastGlobalIndex++;
+			}
+		}
+	}
+	// Fail just for testing
+	return 0;
+}
 
 int
-setup_map_system(int ifindex)
+setup_map_system_from_if_xdp(int ifindex)
 {
 	// Get to XDP program Id connected to the interface
 	int xdp_flags = XDP_FLAGS_UPDATE_IF_NOEXIST | config.xdp_mode;
@@ -48,7 +86,7 @@ setup_map_system(int ifindex)
 	for (int i = 0; i < count_maps; i++) {
 		int map_fd = bpf_map_get_fd_by_id(map_ids[i]);
 		bpf_obj_get_info_by_fd(map_fd, &map_info, &info_size);
-		INFO("* %d: map id: %ld map name: %s\n", i, map_ids[i], map_info.name); 
+		INFO("* %d: map id: %ld map name: %s\n", i, map_ids[i], map_info.name);
 		map_fds[i] = map_fd;
 		map_names[i] = strdup(map_info.name);
 		map_value_size[i] = map_info.value_size;
@@ -73,7 +111,7 @@ _get_map_fd(char *map_name)
 	}
 	return 0;
 }
- 
+
 static int
 _get_map_fd_and_idx(char *map_name, int *idx)
 {

@@ -50,7 +50,15 @@ int main(int argc, char *argv[])
         load_xdp_program(config.custom_kern_path, config.ifindex);
     }
     struct xsk_socket_info *xsk = setup_socket(config.ifname, config.qid);
-    ret = setup_map_system(config.ifindex);
+    /* ret = setup_map_system(config.ifindex); */
+    char *map_names[] = {
+	    "xsks_map",
+	    "map_kcache",
+	    "map_keys",
+	    "map_stats",
+	    "map_parsing_context",
+    };
+    ret = setup_map_system(map_names, 5);
     if (ret)
         goto teardown;
     if (config.custom_kern_prog) {

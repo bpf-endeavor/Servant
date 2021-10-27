@@ -44,14 +44,25 @@ void ubpf_map_elem_release(void *ptr);
 int ubpf_map_update_elem(char *map_name, const void *key_ptr, void *value,
 		int flag);
 
+
 /**
- * The XDP program should be bind to the interface first.
+ * Setup map system by looking for the maps having the name given as argument.
+ * @param names An array of MAP names.
+ * @param size Size of names array. Maximum array size can be MAX_NR_MAPS.
+ * @return Returns zero on success
+ */
+int setup_map_system(char *names[], int size);
+
+/**
+ * Gathers the information of maps from the XDP program that is currently
+ * attached to the interface.
  *
+ * The XDP program should be bind to the interface first.
  * This function should be called only once, map data will be overriten.
  *
  * @param ifindex Intreface index
  * @return Returns zero on success.
  */
-int setup_map_system(int ifindex);
+int setup_map_system_from_if_xdp(int ifindex);
 
 #endif
