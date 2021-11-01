@@ -231,8 +231,10 @@ pump_packets(struct xsk_socket_info *xsk, struct ubpf_vm *vm)
 		struct pktctx pktctx = {
 			.data = ctx,
 			.data_end = ctx + ctx_len,
+			.pkt_len = ctx_len,
 		};
 		int ret = run_vm(vm, &pktctx, sizeof(pktctx));
+		batch[i]->len = pktctx.pkt_len;
 		apply_action(xsk, batch[i], ret);
 	}
     }

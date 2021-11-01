@@ -161,6 +161,7 @@ setup_socket(char *ifname, uint32_t qid)
 void
 tear_down_socket(struct xsk_socket_info *xsk)
 {
+	INFO("Sent packets: %d\n",xsk->ring_stats.tx_npkts);
     uint64_t umem_size = config.num_frames * config.frame_size;
     xsk_socket__delete(xsk->xsk);
     xsk_umem__delete(xsk->umem->umem);

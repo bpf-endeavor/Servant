@@ -22,6 +22,7 @@ static void (*ubpf_print)(char *fmt, ...) = (void *)4;
 struct pktctx {
 	void *data;
 	void *data_end;
+	size_t pkt_len;
 };
 
 #endif

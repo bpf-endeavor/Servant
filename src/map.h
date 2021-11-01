@@ -12,7 +12,7 @@
  */
 extern char *map_names[MAX_NR_MAPS];
 extern int map_fds[MAX_NR_MAPS];
-extern unsigned int map_value_size[MAX_NR_MAPS];
+extern size_t map_value_size[MAX_NR_MAPS];
 
 /**
  * Tries to implement the bpf_map_lookup_elem semantic. in uBPF environment.

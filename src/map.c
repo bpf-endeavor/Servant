@@ -13,7 +13,7 @@
 // TODO (Farbod): Should I use a hash map data structure?
 char *map_names[MAX_NR_MAPS] = {};
 int map_fds[MAX_NR_MAPS] = {};
-unsigned int map_value_size[MAX_NR_MAPS];
+size_t map_value_size[MAX_NR_MAPS];
 
 int
 setup_map_system(char *names[], int size)
@@ -131,15 +131,15 @@ _get_map_fd_and_idx(char *map_name, int *idx)
 void *
 ubpf_map_lookup_elem(char *map_name, const void *key_ptr)
 {
-	uint32_t index = (*(uint32_t *)key_ptr);
-	DEBUG("lookup: map: %s %d\n", map_name, index);
+	/* uint32_t index = (*(uint32_t *)key_ptr); */
+	/* DEBUG("lookup: map: %s %d\n", map_name, index); */
 	int idx;
 	int fd = _get_map_fd_and_idx(map_name, &idx);
 	if (!fd) {
 		ERROR("Failed to find the map %s \n", map_name);
 		return NULL;
 	}
-	DEBUG("Malloc size: %d\n", map_value_size[idx]);
+	/* DEBUG("Malloc size: %d\n", map_value_size[idx]); */
 	void *buffer = malloc(map_value_size[idx]);
 	/* void *buffer = malloc(2048); */
 	if (!buffer) {
@@ -148,8 +148,8 @@ ubpf_map_lookup_elem(char *map_name, const void *key_ptr)
 	}
 	// copies value form kernel to the buffer
 	int ret = bpf_map_lookup_elem(fd, key_ptr, buffer);
-	if (ret) {
-		DEBUG("Item not found\n");
+	if (ret != 0) {
+		/* DEBUG("Item not found\n"); */
 		free(buffer);
 		return NULL;
 	}
@@ -159,7 +159,7 @@ ubpf_map_lookup_elem(char *map_name, const void *key_ptr)
 void
 ubpf_map_elem_release(void *ptr)
 {
-	DEBUG("Free %p\n", ptr);
+	/* DEBUG("Free %p\n", ptr); */
 	free(ptr);
 }
 

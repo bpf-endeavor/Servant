@@ -1,4 +1,5 @@
 CC = clang-11
+# CC = gcc
 # CFLAGS = -g -O0 -Wall
 CFLAGS = -O2 -Wall
 LDFLAGS = -lbpf -lubpf -lm -lpthread

@@ -137,7 +137,7 @@ run_vm(struct ubpf_vm *vm, void *ctx, size_t ctx_len)
 		if (ubpf_exec(vm, ctx, ctx_len, &ret) < 0)
 			ret = UINT64_MAX;
 	}
-	DEBUG("ubpf ret: %d\n", ret);
+	/* DEBUG("ubpf ret: %d\n", ret); */
 	return ret;
 }
 
