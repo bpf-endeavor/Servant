@@ -56,9 +56,12 @@ int main(int argc, char *argv[])
 	    "map_kcache",
 	    "map_keys",
 	    "map_stats",
-	    "map_parsing_context",
+	    "map_parsing_con",
+	    //
+	    "test_map",
+	    "data_map",
     };
-    ret = setup_map_system(map_names, 5);
+    ret = setup_map_system(map_names, 7);
     if (ret)
         goto teardown;
     if (config.custom_kern_prog) {

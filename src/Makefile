@@ -1,5 +1,6 @@
 CC = clang-11
-CFLAGS = -g -O2 -Wall
+# CFLAGS = -g -O0 -Wall
+CFLAGS = -O2 -Wall
 LDFLAGS = -lbpf -lubpf -lm -lpthread
 
 OBJS = servant.o sockets.o heart.o brain.o config.o service_stats.o log.o map.o
@@ -9,10 +10,10 @@ HEADERS = $(wildcard ./*.h)
 all: servant
 
 %.o: %.c $(HEADERS)
-	$(CC) $(CCFLAGS) -c -o $@ $<
+	$(CC) $(CFLAGS) -c -o $@ $<
 
 servant: $(OBJS)
-	$(CC) $(OBJS) -o servant $(LDFLAGS)
+	$(CC) $(CFLAGS) $(OBJS) -o servant $(LDFLAGS)
 
 clean:
 	rm -f $(OBJS) servant

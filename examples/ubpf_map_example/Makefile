@@ -25,5 +25,5 @@ $(XDP_OBJ): %.o: %.c Makefile
 	$(LLC) -march=bpf -mcpu=probe -filetype=obj -o $@ ${@:.o=.ll}
 
 clean:
-	rm -rf $(XDP_OBJ) $(UBPF_OBJ)
+	rm -rf $(XDP_OBJ) $(UBPF_OBJ) ${XDP_OBJ:.o=.ll}
 

@@ -131,18 +131,25 @@ _get_map_fd_and_idx(char *map_name, int *idx)
 void *
 ubpf_map_lookup_elem(char *map_name, const void *key_ptr)
 {
+	uint32_t index = (*(uint32_t *)key_ptr);
+	DEBUG("lookup: map: %s %d\n", map_name, index);
 	int idx;
 	int fd = _get_map_fd_and_idx(map_name, &idx);
 	if (!fd) {
+		ERROR("Failed to find the map %s \n", map_name);
 		return NULL;
 	}
+	DEBUG("Malloc size: %d\n", map_value_size[idx]);
 	void *buffer = malloc(map_value_size[idx]);
+	/* void *buffer = malloc(2048); */
 	if (!buffer) {
+		ERROR("Failed to allocate\n");
 		return NULL;
 	}
 	// copies value form kernel to the buffer
 	int ret = bpf_map_lookup_elem(fd, key_ptr, buffer);
 	if (ret) {
+		DEBUG("Item not found\n");
 		free(buffer);
 		return NULL;
 	}
@@ -152,6 +159,7 @@ ubpf_map_lookup_elem(char *map_name, const void *key_ptr)
 void
 ubpf_map_elem_release(void *ptr)
 {
+	DEBUG("Free %p\n", ptr);
 	free(ptr);
 }
 
