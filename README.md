@@ -45,3 +45,8 @@ If there is a problem with linking the shared object, you might need to add
 the libbpf.so directory to `/etc/ld.so.conf.d/libbpf.conf`. Check the path with
 `whereis libbpf`.
 
+```
+# quick command
+echo `whereis libbpf` | awk '{print $2}' | xargs -I{} dirname {} | sudo tee /etc/ld.so.conf.d/libbpf.conf
+```
+

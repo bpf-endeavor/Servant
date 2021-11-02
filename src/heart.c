@@ -9,7 +9,7 @@
 #include "heart.h"
 #include "brain.h"
 #include "log.h"
-#include "include/servant_engine.h"
+#include "include/packet_context.h"
 
 
 static void kick_tx(struct xsk_socket_info *xsk)
@@ -185,10 +185,11 @@ uint32_t tx(struct xsk_socket_info *xsk, struct xdp_desc **batch, uint32_t cnt)
 void
 apply_action(struct xsk_socket_info *xsk, struct xdp_desc *desc, int action)
 {
-	int ret;
+	/* int ret; */
 	// TODO: Implement the list of actions (DROP, TX, ...)
 	if (action == SEND) {
-		ret = tx(xsk, &desc, 1);
+		/* ret = tx(xsk, &desc, 1); */
+		tx(xsk, &desc, 1);
 	} else {
 		drop(xsk, &desc, 1);
 	}

@@ -51,7 +51,7 @@ readfile(const char *path, size_t maxlen, size_t *len)
 
 	void *data = calloc(maxlen, 1);
 	size_t offset = 0;
-	size_t ret;
+	/* size_t ret; */
 	int rv;
 	while ((rv = fread(data+offset, 1, maxlen-offset, file)) > 0) {
 		offset += rv;
