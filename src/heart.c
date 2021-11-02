@@ -89,12 +89,12 @@ poll_rx_queue(struct xsk_socket_info *xsk, struct xdp_desc **batch,
     const uint32_t rcvd = xsk_ring_cons__peek(&xsk->rx, cnt, &idx_rx);
     if (!rcvd) {
         /* // There is no packets */
-        /* if (config.busy_poll || */
-        /*         xsk_ring_prod__needs_wakeup(&xsk->umem->fq)) { */
-        /*     /1* xsk->app_stats.rx_empty_polls++; *1/ */
-        /*     recvfrom(xsk_socket__fd(xsk->xsk), NULL, 0, MSG_DONTWAIT, */
-        /*             NULL, NULL); */
-        /* } */
+        if (config.busy_poll ||
+                xsk_ring_prod__needs_wakeup(&xsk->umem->fq)) {
+            /* xsk->app_stats.rx_empty_polls++; */
+            recvfrom(xsk_socket__fd(xsk->xsk), NULL, 0, MSG_DONTWAIT,
+                    NULL, NULL);
+        }
         return rcvd;
     }
     for (i = 0; i < rcvd; i++) {
@@ -218,9 +218,6 @@ pump_packets(struct xsk_socket_info *xsk, struct ubpf_vm *vm)
 	rx = poll_rx_queue(xsk, batch, cnt);
         if (!rx)
             continue;
-
-        // TODO: there is no brain yet!
-        // drop(xsk, batch, rx);
 
         // Pass to brain
 	for (int i = 0; i < rx; i++) {

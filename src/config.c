@@ -30,15 +30,15 @@ void usage(char *prog_name)
 void parse_args(int argc, char *argv[])
 {
     // Default Values
-    config.frame_size = 4096;
+    config.frame_size = 2048;
     config.frame_shift = log2(config.frame_size);
     config.headroom = 0;
     config.busy_poll = 0;
-    config.busy_poll_duration = 50;
-    config.batch_size = 64;
+    config.busy_poll_duration = 20;
+    config.batch_size = 32;
     config.terminate = 0;
     config.rx_size = 2048;
-    config.tx_size = 1024;
+    config.tx_size = 2048;
     config.copy_mode = XDP_ZEROCOPY;
     config.xdp_mode = XDP_FLAGS_DRV_MODE;
     // config.copy_mode = XDP_COPY;
