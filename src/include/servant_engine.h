@@ -4,6 +4,27 @@
 #ifndef memcpy
 # define memcpy(dest, src, n)   __builtin_memcpy((dest), (src), (n))
 #endif
+ 
+typedef unsigned long int uint64_t;
+typedef unsigned int      uint32_t;
+typedef unsigned short    uint16_t;
+typedef unsigned char     uint8_t;
+typedef long int          int64_t;
+typedef int               int32_t;
+typedef short             int16_t;
+typedef char              int8_t;
+
+#if defined(__BYTE_ORDER__) && defined(__ORDER_LITTLE_ENDIAN__) && \
+		__BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
+#define ubpf_ntohs(x)		__builtin_bswap16(x)
+#define ubpf_htons(x)		__builtin_bswap16(x)
+#elif defined(__BYTE_ORDER__) && defined(__ORDER_BIG_ENDIAN__) && \
+		__BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
+#define ubpf_ntohs(x)		(x)
+#define ubpf_htons(x)		(x)
+#else
+# error "Endianness detection needs to be set up for your compiler?!"
+#endif
 
 // Map access functions
 static void *(*lookup)(char *name, const void *key) = (void *)1;

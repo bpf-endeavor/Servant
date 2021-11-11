@@ -1,5 +1,3 @@
-#include <stdint.h>
-#include <arpa/inet.h>
 #include "../../src/include/servant_engine.h"
 
 // for packet parsing
@@ -8,7 +6,6 @@
 #include <linux/udp.h>
 #include <linux/in.h> // IPPROTO_*
 
-#include <bpf/bpf_endian.h>
 
 #ifndef DUMP
 #define DUMP(x, args...) { char fmt[] = x; ubpf_print((char *)fmt, ##args); } 
@@ -24,7 +21,7 @@ int bpf_prog(struct pktctx *ctx)
 		eth->h_source[i] = eth->h_dest[i];
 		eth->h_dest[i] = tmp;
 	}
-	if (eth->h_proto == htons(ETH_P_IP)) {
+	if (eth->h_proto == ubpf_htons(ETH_P_IP)) {
 		struct iphdr *ip = (struct iphdr *)(eth + 1);
 		// Swap IP
 		uint32_t tmp_ip = ip->saddr;
