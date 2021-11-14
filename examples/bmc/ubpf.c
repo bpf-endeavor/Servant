@@ -1,5 +1,5 @@
-#include <string.h>
-#include <arpa/inet.h>
+/* #include <string.h> */
+/* #include <arpa/inet.h> */
 #include <linux/if_ether.h>
 #include <linux/ip.h>
 #include <linux/udp.h>
@@ -122,10 +122,10 @@ int bmc_write_reply_main(struct pktctx *ctx)
 			/* if (udp + 1 > data_end) */
 			/*	return XDP_PASS; */
 
-			ip->tot_len = htons((payload + pctx->write_pkt_offset + written) - (char*)ip);
+			ip->tot_len = ubpf_htons((payload + pctx->write_pkt_offset + written) - (char*)ip);
 			ip->check = compute_ip_checksum(ip);
 			udp->check = 0; // computing udp checksum is not required
-			udp->len = htons((payload + pctx->write_pkt_offset + written) - (char*)udp);
+			udp->len = ubpf_htons((payload + pctx->write_pkt_offset + written) - (char*)udp);
 
 			/* bpf_xdp_adjust_tail(ctx, 0 - (int) ((long) data_end - (long) (payload+pctx->write_pkt_offset+written))); // try to strip additional bytes */
 

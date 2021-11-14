@@ -1,6 +1,6 @@
 LLC = llc-9
 CLANG = clang-9
-UBPF_OBJ = ubpf.o
+UBPF_OBJ = ubpf.o bmc_in_ubpf.o
 XDP_OBJ = xdp.o
 
 # -Werror
