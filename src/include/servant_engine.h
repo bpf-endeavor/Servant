@@ -30,9 +30,15 @@ typedef char              int8_t;
 static void *(*lookup)(char *name, const void *key) = (void *)1;
 static int (*free_elem)(void *ptr) = (void *)3;
 static void (*ubpf_print)(char *fmt, ...) = (void *)4;
+static unsigned long int (*ubpf_rdtsc)(void) = (void *)5;
 
 // This macro helps with printing things from uBPF
 #define DUMP(x, args...) { char fmt[] = x; ubpf_print((char *)fmt, ##args); } 
+
+#ifndef NULL
+#define NULL 0
+#endif
+
 
 #include "packet_context.h"
 #endif
