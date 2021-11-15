@@ -66,9 +66,10 @@ setup_socket(char *ifname, uint32_t qid)
     uint64_t umem_size = config.num_frames * config.frame_size;
     bufs = mmap(NULL, umem_size,
             PROT_READ | PROT_WRITE,
-            MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+            MAP_PRIVATE | MAP_ANONYMOUS | MAP_HUGETLB, -1, 0);
     if (bufs == MAP_FAILED) {
         ERROR("mmap failed\n");
+	INFO("Not enough huge page memory available\n");
         exit(EXIT_FAILURE);
     }
     // creating umem

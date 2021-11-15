@@ -14,11 +14,14 @@ unwind(uint64_t i)
     return i;
 }
 
-/* static uint32_t */
-/* sqrti(uint32_t x) */
-/* { */
-/*     return sqrt(x); */
-/* } */
+# include <x86intrin.h>
+static inline
+uint64_t readTSC() {
+    // _mm_lfence();  // optionally wait for earlier insns to retire before reading the clock
+    uint64_t tsc = __rdtsc();
+    // _mm_lfence();  // optionally block later instructions until rdtsc retires
+    return tsc;
+}
 
 
 /**
@@ -31,10 +34,11 @@ register_engine_functions(struct ubpf_vm *vm)
 	ubpf_register(vm, 2, "ubpf_map_update_elem", ubpf_map_update_elem);
 	ubpf_register(vm, 3, "ubpf_map_elem_release", ubpf_map_elem_release);
 	ubpf_register(vm, 4, "printf", printf);
-	ubpf_register(vm, 5, "unwind", unwind);
-	ubpf_set_unwind_function_index(vm, 5);
+	ubpf_register(vm, 5, "rdtsc", readTSC);
+	ubpf_register(vm, 6, "unwind", unwind);
+	ubpf_set_unwind_function_index(vm, 6);
 }
- 
+
 /**
  * Load the program code.
  */
@@ -117,6 +121,30 @@ setup_ubpf_engine(char *program_path, struct ubpf_vm **_vm)
 	*_vm = vm;
 	return 0;
 }
+
+
+/* #define delay_cycles 0 */
+/* static int fn(void *ctx, size_t ctx_len) */
+/* { */
+/* 	uint64_t begin = readTSC(); */
+/* 	uint64_t now = begin; */
+/* 	uint64_t end = now + delay_cycles; */
+/* 	if (now <= end) { */
+/* 		while (now  < end) { */
+/* 			now = readTSC(); */
+/* 		} */
+/* 	} else { */
+/* 		while (now > end) { */
+/* 			now = readTSC(); */
+/* 		} */
+/* 		while (now < end) { */
+/* 			now = readTSC(); */
+/* 		} */
+/* 	} */
+/* 	// 200 Drop */
+/* 	// 300 Send */
+/* 	return 300; */
+/* } */
 
 int
 run_vm(struct ubpf_vm *vm, void *ctx, size_t ctx_len)

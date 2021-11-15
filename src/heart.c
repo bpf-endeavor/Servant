@@ -11,6 +11,8 @@
 #include "log.h"
 #include "include/packet_context.h"
 
+#include "time.h"
+
 
 static void kick_tx(struct xsk_socket_info *xsk)
 {
@@ -98,8 +100,8 @@ poll_rx_queue(struct xsk_socket_info *xsk, struct xdp_desc **batch,
         return rcvd;
     }
     for (i = 0; i < rcvd; i++) {
-        const struct xdp_desc *desc =
-            xsk_ring_cons__rx_desc(&xsk->rx, idx_rx);
+        struct xdp_desc *desc =
+            (struct xdp_desc *)xsk_ring_cons__rx_desc(&xsk->rx, idx_rx);
         idx_rx++;
         /* uint64_t addr = desc->addr; */
         /* uint32_t len = desc->len; */
@@ -205,36 +207,51 @@ apply_action(struct xsk_socket_info *xsk, struct xdp_desc *desc, int action)
 void
 pump_packets(struct xsk_socket_info *xsk, struct ubpf_vm *vm)
 {
-    uint32_t rx;
-    const uint32_t cnt = config.batch_size;
-    struct xdp_desc *batch[cnt];
-    for(;;) {
-        if (config.terminate) {
-            break;
-        }
+	static uint64_t pkt_count = 0;
 
-	if (xsk->outstanding_tx > 0) {
-		complete_tx(xsk);
-	}
-	rx = poll_rx_queue(xsk, batch, cnt);
-        if (!rx)
-            continue;
+	struct timespec spec = {};
+	clock_gettime(CLOCK_REALTIME, &spec);
+	uint64_t rprt_ts = spec.tv_sec * 1000000 + spec.tv_nsec / 1000;
 
-        // Pass to brain
-	for (int i = 0; i < rx; i++) {
-		uint64_t addr = batch[i]->addr;
-		addr = xsk_umem__add_offset_to_addr(addr);
-		size_t ctx_len = batch[i]->len;
-		void *ctx = xsk_umem__get_data(xsk->umem->buffer, addr);
-		struct pktctx pktctx = {
-			.data = ctx,
-			.data_end = ctx + ctx_len,
-			.pkt_len = ctx_len,
-		};
-		int ret = run_vm(vm, &pktctx, sizeof(pktctx));
-		batch[i]->len = pktctx.pkt_len;
-		apply_action(xsk, batch[i], ret);
+	uint32_t rx;
+	const uint32_t cnt = config.batch_size;
+	struct xdp_desc *batch[cnt];
+	struct pktctx pktctx;
+	for(;;) {
+		if (config.terminate) {
+			break;
+		}
+
+		if (xsk->outstanding_tx > 0) {
+			complete_tx(xsk);
+		}
+		rx = poll_rx_queue(xsk, batch, cnt);
+		if (!rx)
+			continue;
+
+		// Pass to brain
+		for (int i = 0; i < rx; i++) {
+			uint64_t addr = batch[i]->addr;
+			addr = xsk_umem__add_offset_to_addr(addr);
+			size_t ctx_len = batch[i]->len;
+			void *ctx = xsk_umem__get_data(xsk->umem->buffer, addr);
+			pktctx.data = ctx;
+			pktctx.data_end = ctx + ctx_len;
+			pktctx.pkt_len = ctx_len;
+			int ret = run_vm(vm, &pktctx, sizeof(pktctx));
+			/* DEBUG("action: %d\n", ret); */
+			batch[i]->len = pktctx.pkt_len;
+			apply_action(xsk, batch[i], ret);
+			pkt_count++;
+			clock_gettime(CLOCK_REALTIME, &spec);
+			uint64_t now = spec.tv_sec * 1000000 + spec.tv_nsec / 1000;
+			uint64_t delta = now - rprt_ts;
+			if (delta > 500000) {
+				INFO("TP: %d\n", pkt_count * 1000000 / delta);
+				pkt_count = 0;
+				rprt_ts = now;
+			}
+		}
 	}
-    }
 }
 
