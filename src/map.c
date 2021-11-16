@@ -2,6 +2,8 @@
 #include <string.h>
 #include <errno.h>
 #include <linux/if_link.h> // some XDP flags
+#include <sys/mman.h> // mmap
+#include <unistd.h>  // sysconf
 #include <bpf/libbpf.h> // bpf_get_link_xdp_id
 #include <bpf/bpf.h> // bpf_prog_get_fd_by_id, bpf_obj_get_info_by_fd, ...
 
@@ -14,6 +16,14 @@
 char *map_names[MAX_NR_MAPS] = {};
 int map_fds[MAX_NR_MAPS] = {};
 size_t map_value_size[MAX_NR_MAPS];
+void *map_value_pool[MAX_NR_MAPS];
+void *mmap_area[MAX_NR_MAPS];
+
+static size_t roundup_page(size_t sz)
+{
+	long page_size = sysconf(_SC_PAGE_SIZE);
+	return (sz + page_size - 1) / page_size * page_size;
+}
 
 int
 setup_map_system(char *names[], int size)
@@ -44,6 +54,29 @@ setup_map_system(char *names[], int size)
 				map_fds[lastGlobalIndex] = map_fd;
 				map_names[lastGlobalIndex] = strdup(map_info.name);
 				map_value_size[lastGlobalIndex] = map_info.value_size;
+
+				void *buffer = malloc(map_value_size[lastGlobalIndex]);
+				if (!buffer) {
+					ERROR("Failed to allocate map value pool object\n");
+					return 1;
+				}
+				map_value_pool[lastGlobalIndex] = buffer;
+
+				if (map_info.map_flags & BPF_F_MMAPABLE) {
+					const size_t map_sz = roundup_page(map_info.value_size * map_info.max_entries);
+					INFO("# map name: %s is mmapped (size: %ld, fd: %d)\n", map_info.name, map_sz, map_fd);
+					void *m = mmap(NULL, map_sz, PROT_READ | PROT_WRITE, MAP_SHARED, map_fd, 0);
+					if (m == MAP_FAILED) {
+						ERROR("Failed to memory map 'ebpf MAP' size: %ld\n", map_sz);
+						mmap_area[lastGlobalIndex] = NULL;
+						/* return 1; */
+					} else {
+						mmap_area[lastGlobalIndex] = m;
+					}
+				} else {
+					mmap_area[lastGlobalIndex] = NULL;
+				}
+
 				lastGlobalIndex++;
 			}
 		}
@@ -90,6 +123,13 @@ setup_map_system_from_if_xdp(int ifindex)
 		map_fds[i] = map_fd;
 		map_names[i] = strdup(map_info.name);
 		map_value_size[i] = map_info.value_size;
+
+		void *buffer = malloc(map_value_size[i]);
+		if (!buffer) {
+			ERROR("Failed to allocate map value pool object\n");
+			return 1;
+		}
+		map_value_pool[i] = buffer;
 	}
 	return 0;
 }
@@ -131,17 +171,17 @@ _get_map_fd_and_idx(char *map_name, int *idx)
 void *
 ubpf_map_lookup_elem(char *map_name, const void *key_ptr)
 {
-	/* uint32_t index = (*(uint32_t *)key_ptr); */
-	/* DEBUG("lookup: map: %s %d\n", map_name, index); */
 	int idx;
 	int fd = _get_map_fd_and_idx(map_name, &idx);
 	if (!fd) {
 		ERROR("Failed to find the map %s \n", map_name);
 		return NULL;
 	}
-	/* DEBUG("Malloc size: %d\n", map_value_size[idx]); */
-	void *buffer = malloc(map_value_size[idx]);
-	/* void *buffer = malloc(2048); */
+	if (mmap_area[idx] != NULL) {
+		// if memory mapped then key is integer (?!)
+		return mmap_area[idx] + (map_value_size[idx] * (*(uint32_t *)key_ptr));
+	}
+	void *buffer = map_value_pool[idx];
 	if (!buffer) {
 		ERROR("Failed to allocate\n");
 		return NULL;
@@ -160,7 +200,7 @@ void
 ubpf_map_elem_release(void *ptr)
 {
 	/* DEBUG("Free %p\n", ptr); */
-	free(ptr);
+	/* free(ptr); */
 }
 
 int
