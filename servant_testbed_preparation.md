@@ -74,6 +74,12 @@ cd src
 make
 ```
 
+6. Flow Steering
+
+```
+sudo ethtool  -U enp24s0f1 flow-type udp4 dst-port 8080 action 2
+```
+
 For building the examples use `make` in their directory.
 
 # Workload Generator machine
@@ -123,4 +129,47 @@ sudo ninja install
 4. Get custom version of Mutilate
 
 Get the install script and run it.
+
+5. Get DPDK `igb_uio` Kernel Module
+
+```
+git clone git://dpdk.org/dpdk-kmods
+cd dpdk-kmods/linux/igb_uio/
+make
+sudo modprobe uio
+sudo insmod /users/farbod/dpdk-kmods/linux/igb_uio/igb_uio.ko
+```
+
+6. Bind Script for DPDK
+
+> Take note of interface MAC address before binding!
+
+```
+#! /bin/bash
+
+INTERFACE=enp24s0f1
+PCI=18:00.1
+DPDK_DRIVER=igb_uio
+NORMAL_DRIVER=i40e
+IP="192.168.1.2/24"
+
+if [ "x$1" = "xunbind" ]; then
+	sudo dpdk-devbind.py -u $PCI
+	sudo dpdk-devbind.py -b $NORMAL_DRIVER $PCI
+	sudo ip link set dev $INTERFACE up
+	sudo ip addr add $IP dev $INTERFACE
+else
+	sudo ip link set dev $INTERFACE down
+	sudo dpdk-devbind.py -u $PCI
+	sudo dpdk-devbind.py -b $DPDK_DRIVER $PCI
+fi
+```
+
+# Measurments
+
+On the main machine
+
+```
+./mmwatch 'ethtool -S enp24s0f1 | egrep ".*: [1-9][0-9]*$"'
+```
 
