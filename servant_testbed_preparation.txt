@@ -1,0 +1,126 @@
+# About
+This instructions are for preparing the cloudlab environment.
+
+# Main Machine (Test machine)
+1. Install Linux kernel 13 + rdtsc instructions
+
+```
+cd /proj/progstack-PG0/farbod/ubuntu
+sudo dpkg -i *.deb
+sudo reboot
+```
+
+2. Install uBPF library
+
+```
+git clone https://fyro.ir/fshahinfar1/uBPF.git
+cd uBPF/vm
+make
+sudo make install
+```
+
+3. Install libbpf library
+
+```
+# Some dependencies you might need
+sudo apt install -y libz-dev libelf-dev
+# Getting and compiling the libbpf
+git clone https://github.com/libbpf/libbpf
+cd libbpf
+git checkout f9f6e92458899fee5d3d6c62c645755c25dd502d
+cd src
+mkdir build
+make all OBJDIR=.
+# make install_headers DESTDIR=build OBJDIR=.
+make install DESTDIR=build OBJDIR=.
+sudo make install
+# Update ldconfig files
+echo `whereis libbpf` | awk '{print $2}' | xargs dirname | sudo tee /etc/ld.so.conf.d/libbpf.conf
+sudo ldconfig
+```
+
+4. Get Modified BMC repository
+
+First install some dependenceis.
+
+```
+sudo apt update
+sudo apt install -y clang-11 clang-9 llvm-11 llvm-9
+```
+
+Update the `$HOME/.bashrc` and append this line. Then source the `bashrc` file.
+
+```
+# Works with bash not sure if sh support this
+export CPATH=$CPATH:/usr/include/:/usr/include/x86_64-linux-gnu
+```
+
+Next get the repository and build
+
+```
+git clone https://fyro.ir/fshahinfar1/BMC
+cd BMC
+./make
+```
+
+This custom BMC repository has multiple branches. The main branch is a version
+that does not need the servant to operate.
+
+5. Get the servant
+
+```
+git clone https://fyro.ir/fshahinfar1/Servant.git
+cd src
+make
+```
+
+For building the examples use `make` in their directory.
+
+# Workload Generator machine
+
+1. Setup Huge pages
+
+Edit `/etc/default/grub` and update these variables
+
+```
+GRUB_CMDLINE_LINUX_DEFAULT="default_hugepagesz=1G hugepagesz=1G hugepages=16"
+```
+
+Then
+
+```
+sudo update-grub
+sudo reboot
+```
+
+2. Get DPDK
+
+```
+sudo apt update
+sudo apt isntall mesno ninja-build python3-pyelftools libpcap-dev
+git clone git://dpdk.org/dpdk
+cd dpdk
+git checkout v21.11
+meson build
+cd build
+ninja
+sudo ninja install
+```
+
+3. Get pktgen
+
+```
+sudo apt install libnuma-dev
+git clone git://dpdk.org/apps/pktgen-dpdk
+cd pktgen-dpdk
+git checkout pktgen-21.11.0
+meson build
+cd build
+ninja
+sudo ninja install
+```
+
+4. Get custom version of Mutilate
+
+Get the install script and run it.
+
