@@ -55,13 +55,14 @@ int main(int argc, char *argv[])
 	    "xsks_map",
 	    "map_kcache",
 	    "map_keys",
-	    "map_stats",
-	    "map_parsing_con",
+	    // "map_stats",
+	    // "map_parsing_con",
 	    //
 	    "test_map",
 	    "data_map",
     };
-    ret = setup_map_system(map_names, 7);
+    const int count_map_names = 5;
+    ret = setup_map_system(map_names, count_map_names);
     if (ret)
         goto teardown;
     if (config.custom_kern_prog) {

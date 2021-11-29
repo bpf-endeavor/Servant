@@ -21,8 +21,8 @@ void *mmap_area[MAX_NR_MAPS];
 
 static size_t roundup_page(size_t sz)
 {
-	long page_size = sysconf(_SC_PAGE_SIZE);
-	return (sz + page_size - 1) / page_size * page_size;
+	size_t page_size = sysconf(_SC_PAGE_SIZE);
+	return ((sz + page_size - 1) / page_size) * page_size;
 }
 
 int
@@ -63,8 +63,10 @@ setup_map_system(char *names[], int size)
 				map_value_pool[lastGlobalIndex] = buffer;
 
 				if (map_info.map_flags & BPF_F_MMAPABLE) {
-					const size_t map_sz = roundup_page(map_info.value_size * map_info.max_entries);
-					INFO("# map name: %s is mmapped (size: %ld, fd: %d)\n", map_info.name, map_sz, map_fd);
+					const size_t map_sz = roundup_page((size_t)map_info.value_size * map_info.max_entries);
+					INFO("# map name: %s is mmapped\n", map_info.name);
+					INFO("# details (size: %ld fd: %d value size: %d entries: %d)\n",
+							map_sz, map_fd, map_value_size[lastGlobalIndex], map_info.max_entries);
 					void *m = mmap(NULL, map_sz, PROT_READ | PROT_WRITE, MAP_SHARED, map_fd, 0);
 					if (m == MAP_FAILED) {
 						ERROR("Failed to memory map 'ebpf MAP' size: %ld\n", map_sz);

@@ -1,7 +1,7 @@
-# CC = clang-11
-CC = gcc
+CC = clang-11
+# CC = gcc
 # CFLAGS = -g -O0 -Wall
-CFLAGS = -O2 -Wall
+CFLAGS = -O2 -g -Wall
 LDFLAGS = -lbpf -lubpf -lm -lpthread
 
 OBJS = servant.o sockets.o heart.o brain.o config.o service_stats.o log.o map.o
