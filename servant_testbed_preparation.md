@@ -23,6 +23,7 @@ sudo make install
 
 ```
 # Some dependencies you might need
+sudo apt update
 sudo apt install -y libz-dev libelf-dev
 # Getting and compiling the libbpf
 git clone https://github.com/libbpf/libbpf
@@ -70,7 +71,7 @@ that does not need the servant to operate.
 
 ```
 git clone https://fyro.ir/fshahinfar1/Servant.git
-cd src
+cd Servant/src
 make
 ```
 
@@ -103,7 +104,7 @@ sudo reboot
 
 ```
 sudo apt update
-sudo apt isntall mesno ninja-build python3-pyelftools libpcap-dev
+sudo apt install meson ninja-build python3-pyelftools libpcap-dev
 git clone git://dpdk.org/dpdk
 cd dpdk
 git checkout v21.11
