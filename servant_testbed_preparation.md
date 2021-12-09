@@ -68,6 +68,22 @@ that does not need the servant to operate.
 
 5. Get the servant
 
+First enable huge pages on the machine. Edit `/etc/default/grub`.
+
+```
+GRUB_CMDLINE_LINUX_DEFAULT="default_hugepagesz=1G hugepagesz=1G hugepages=16"
+```
+
+then
+
+```
+sudo update-grub
+sudo reboot
+```
+
+After rebooting the 1GB huge pages are available. Clone the repository and
+compile it.
+
 ```
 git clone https://fyro.ir/fshahinfar1/Servant.git
 cd src
@@ -171,5 +187,35 @@ On the main machine
 
 ```
 ./mmwatch 'ethtool -S enp24s0f1 | egrep ".*: [1-9][0-9]*$"'
+```
+
+# Generating Load
+
+## Mutilate
+
+* Loading memcached server
+
+```
+#!/bin/bash
+
+./mutilate/mutilate -s 192.168.1.1 --loadonly
+```
+
+* Stressing memcached server
+
+```
+#!/bin/bash
+
+bin=./mutilate/mutilateudp
+
+# Setup the Agent
+$bin -A -T 32 &> /dev/null &
+sleep 1
+
+# Setup the Master
+
+$bin -s 192.168.1.1:8080 -C 1 -c 4 --noload -a 127.0.0.1 --time 30
+
+pkill mutilate
 ```
 
