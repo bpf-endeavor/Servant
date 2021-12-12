@@ -207,16 +207,30 @@ On the main machine
     ```
     #!/bin/bash
 
+    ip=192.168.1.1
+    port=8080
+    recs=10000000
+    general="-K fb_key -V fb_value -r $recs --popularity=zipf:0.99"
+    # general="-K 30 -V 200 -r $recs"
     bin=./mutilate/mutilateudp
+    bin_loader=./mutilate/mutilate
 
-    # Setup the Agent
-    $bin -A -T 32 &> /dev/null &
-    sleep 1
+    if [ "x$1" = "xload" ]; then
+        $bin_loader -s $ip --loadonly $general
+    elif [ "x$1" = "xlow" ]; then
+        # Low load for testing
+        $bin -s $ip:$port -C 1 -c 1 --noload --time 5 $general
+    else
+        # Setup the Agent
+        $bin -A -T 32 &> /dev/null &
+        sleep 1
 
-    # Setup the Master
+        # Setup the Master
 
-    $bin -s 192.168.1.1:8080 -C 1 -c 4 --noload -a 127.0.0.1 --time 30
+        $bin -s $ip:$port -C 1 -c 4 --noload -a 127.0.0.1 --time 30 $general
+    fi
 
     pkill mutilate
+    pkill mutilateudp
     ```
 
