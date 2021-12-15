@@ -217,6 +217,18 @@ pump_packets(struct xsk_socket_info *xsk, struct ubpf_vm *vm)
 	const uint32_t cnt = config.batch_size;
 	struct xdp_desc *batch[cnt];
 	struct pktctx pktctx;
+
+	if (!config.jitted) {
+		INFO("Intentionally use jitted mode (ignore the flag)\n");
+	}
+	char *errmsg;
+	ubpf_jit_fn fn = ubpf_compile(vm, &errmsg);
+	if (fn == NULL) {
+		ERROR("Failed to compile: %s\n", errmsg);
+		free(errmsg);
+		return;
+	}
+
 	for(;;) {
 		if (config.terminate) {
 			break;
@@ -238,7 +250,8 @@ pump_packets(struct xsk_socket_info *xsk, struct ubpf_vm *vm)
 			pktctx.data = ctx;
 			pktctx.data_end = ctx + ctx_len;
 			pktctx.pkt_len = ctx_len;
-			int ret = run_vm(vm, &pktctx, sizeof(pktctx));
+			/* int ret = run_vm(vm, &pktctx, sizeof(pktctx)); */
+			int ret = fn(&pktctx, sizeof(pktctx));
 			/* DEBUG("action: %d\n", ret); */
 			batch[i]->len = pktctx.pkt_len;
 			apply_action(xsk, batch[i], ret);

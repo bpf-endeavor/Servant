@@ -1,4 +1,4 @@
-CC = clang-11
+CC = clang-13
 # CC = gcc
 # CFLAGS = -g -O0 -Wall
 CFLAGS = -O2 -g -Wall
