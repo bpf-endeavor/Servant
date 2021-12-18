@@ -73,6 +73,15 @@ int main(int argc, char *argv[])
         }
     }
 
+    if (config.has_uth) {
+	    /* Setup Userspace Tx Hook */
+	    /* ret = uth_setup(); */
+	    /* if (ret) { */
+		    /* goto teardown; */
+	    /* } */
+	    INFO("UTH has not implemented yet\n");
+    }
+
     // Add interrupt handler
     signal(SIGINT,  int_exit);
     signal(SIGTERM, int_exit);

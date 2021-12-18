@@ -32,6 +32,9 @@ struct config {
     // Custom Kernel
     int custom_kern_prog;
     char *custom_kern_path;
+    // Userspace Tx Hook
+    int has_uth;
+    char *uth_prog_path;
     // Dummy
     int args[1]; // it is weired
     uint32_t tmp;

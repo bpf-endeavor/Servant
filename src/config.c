@@ -10,7 +10,7 @@
 #include "log.h"
 
 #define REQUIRED_ARGUMENTS 3
- 
+
 struct config config = {};
 
 void usage(char *prog_name)
@@ -21,15 +21,15 @@ void usage(char *prog_name)
             "*\t eBPF:    path to eBPF program\n"
             "Options:\n"
             "\t num-frames, frame-size, batch-size,rx-size, tx-size,\n"
-            "\t copy-mode, skb-mode, xdp-prog, no-jit\n"
+            "\t copy-mode, skb-mode, xdp-prog, no-jit [disabled], uth\n"
             );
     printf(desc, prog_name);
 }
- 
+
 
 void parse_args(int argc, char *argv[])
 {
-    // Default Values
+    /* Default Values */
     config.frame_size = 2048;
     config.frame_shift = log2(config.frame_size);
     config.headroom = 0;
@@ -41,8 +41,8 @@ void parse_args(int argc, char *argv[])
     config.tx_size = 2048;
     config.copy_mode = XDP_ZEROCOPY;
     config.xdp_mode = XDP_FLAGS_DRV_MODE;
-    // config.copy_mode = XDP_COPY;
     config.jitted = 1;
+    /* Set when using custom XDP program */
     config.custom_kern_prog = 0;
     config.custom_kern_path = NULL;
 
@@ -57,6 +57,7 @@ void parse_args(int argc, char *argv[])
         SKB_MODE,
         XDP_PROG,
         NO_JIT,
+    UTH,
     };
     struct option long_opts[] = {
         {"help", no_argument, NULL, HELP},
@@ -69,6 +70,7 @@ void parse_args(int argc, char *argv[])
         {"skb-mode", no_argument, NULL, SKB_MODE},
         {"xdp-prog", required_argument, NULL, XDP_PROG},
         {"no-jit", no_argument, NULL, NO_JIT},
+        {"uth", required_argument, NULL, UTH},
     };
     int ret;
     char optstring[] = "";
@@ -106,6 +108,10 @@ void parse_args(int argc, char *argv[])
                 break;
             case NO_JIT:
                 config.jitted = 0;
+                break;
+            case UTH:
+                config.has_uth = 1;
+                config.uth_prog_path = optarg;
                 break;
             case HELP:
                 usage(argv[0]);
@@ -157,9 +163,9 @@ void parse_args(int argc, char *argv[])
       exit(EXIT_FAILURE);
     }
     if (config.custom_kern_prog) {
-	    INFO("Using custom XDP program %s\n", config.custom_kern_path);
+        INFO("Using custom XDP program %s\n", config.custom_kern_path);
     } else {
-	    INFO("Using builting XDP program for AF_XDP\n");
+        INFO("Using builting XDP program for AF_XDP\n");
     }
     INFO("Batch Size: %d\n", config.batch_size);
     INFO("Rx Ring Size: %d\n", config.rx_size);

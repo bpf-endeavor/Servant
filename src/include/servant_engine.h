@@ -4,15 +4,19 @@
 #ifndef memcpy
 # define memcpy(dest, src, n)   __builtin_memcpy((dest), (src), (n))
 #endif
- 
+
+#ifndef _STDINT_H
 typedef unsigned long int uint64_t;
 typedef unsigned int      uint32_t;
 typedef unsigned short    uint16_t;
 typedef unsigned char     uint8_t;
+#ifndef _BITS_STDINT_INTN_H
 typedef long int          int64_t;
 typedef int               int32_t;
 typedef short             int16_t;
 typedef char              int8_t;
+#endif
+#endif
 
 #if defined(__BYTE_ORDER__) && defined(__ORDER_LITTLE_ENDIAN__) && \
 		__BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__

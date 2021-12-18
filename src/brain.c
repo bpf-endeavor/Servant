@@ -5,7 +5,7 @@
 #include <elf.h>
 #include "brain.h"
 #include "log.h"
-#include "config.h"
+/* #include "config.h" */
 #include "map.h"
 
 static uint64_t
@@ -168,26 +168,26 @@ setup_ubpf_engine(char *program_path, struct ubpf_vm **_vm)
 /* 	return 300; */
 /* } */
 
-int
-run_vm(struct ubpf_vm *vm, void *ctx, size_t ctx_len)
-{
-	uint64_t ret;
-	char *errmsg;
-	// TODO: Maybe it is better to selected either jitted or non-jitted
-	// approach and remove the if statement.
-	if (config.jitted) {
-		ubpf_jit_fn fn = ubpf_compile(vm, &errmsg);
-		if (fn == NULL) {
-			ERROR("Failed to compile: %s\n", errmsg);
-			free(errmsg);
-			return 1;
-		}
-		ret = fn(ctx, ctx_len);
-	} else {
-		if (ubpf_exec(vm, ctx, ctx_len, &ret) < 0)
-			ret = UINT64_MAX;
-	}
-	/* DEBUG("ubpf ret: %d\n", ret); */
-	return ret;
-}
+/* int */
+/* run_vm(struct ubpf_vm *vm, void *ctx, size_t ctx_len) */
+/* { */
+/* 	uint64_t ret; */
+/* 	char *errmsg; */
+/* 	// TODO: Maybe it is better to selected either jitted or non-jitted */
+/* 	// approach and remove the if statement. */
+/* 	if (config.jitted) { */
+/* 		ubpf_jit_fn fn = ubpf_compile(vm, &errmsg); */
+/* 		if (fn == NULL) { */
+/* 			ERROR("Failed to compile: %s\n", errmsg); */
+/* 			free(errmsg); */
+/* 			return 1; */
+/* 		} */
+/* 		ret = fn(ctx, ctx_len); */
+/* 	} else { */
+/* 		if (ubpf_exec(vm, ctx, ctx_len, &ret) < 0) */
+/* 			ret = UINT64_MAX; */
+/* 	} */
+/* 	/1* DEBUG("ubpf ret: %d\n", ret); *1/ */
+/* 	return ret; */
+/* } */
 
