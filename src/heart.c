@@ -11,7 +11,18 @@
 #include "log.h"
 #include "include/packet_context.h"
 
-#include "time.h"
+#include <time.h>
+
+/* #include "duration_hist.h" */
+
+/* # include <x86intrin.h> */
+/* static inline */
+/* uint64_t readTSC(void) { */
+/*     // _mm_lfence();  // optionally wait for earlier insns to retire before reading the clock */
+/*     uint64_t tsc = __rdtsc(); */
+/*     // _mm_lfence();  // optionally block later instructions until rdtsc retires */
+/*     return tsc; */
+/* } */
 
 
 static void kick_tx(struct xsk_socket_info *xsk)
@@ -30,8 +41,9 @@ void complete_tx(struct xsk_socket_info *xsk) {
 	if (!xsk->outstanding_tx)
 		return;
 
-	if (config.copy_mode == XDP_COPY ||
-			xsk_ring_prod__needs_wakeup(&xsk->tx)) {
+	/* if (config.copy_mode == XDP_COPY || */
+	/* 		xsk_ring_prod__needs_wakeup(&xsk->tx)) { */
+	if (config.copy_mode == XDP_COPY) {
 		/* xsk->app_stats.copy_tx_sendtos++; */
 		kick_tx(xsk);
 	}
@@ -207,11 +219,11 @@ apply_action(struct xsk_socket_info *xsk, struct xdp_desc *desc, int action)
 void
 pump_packets(struct xsk_socket_info *xsk, struct ubpf_vm *vm)
 {
-	static uint64_t pkt_count = 0;
+	/* static uint64_t pkt_count = 0; */
 
-	struct timespec spec = {};
-	clock_gettime(CLOCK_REALTIME, &spec);
-	uint64_t rprt_ts = spec.tv_sec * 1000000 + spec.tv_nsec / 1000;
+	/* struct timespec spec = {}; */
+	/* clock_gettime(CLOCK_REALTIME, &spec); */
+	/* uint64_t rprt_ts = spec.tv_sec * 1000000 + spec.tv_nsec / 1000; */
 
 	uint32_t rx;
 	const uint32_t cnt = config.batch_size;
@@ -251,20 +263,25 @@ pump_packets(struct xsk_socket_info *xsk, struct ubpf_vm *vm)
 			pktctx.data_end = ctx + ctx_len;
 			pktctx.pkt_len = ctx_len;
 			/* int ret = run_vm(vm, &pktctx, sizeof(pktctx)); */
+			/* uint64_t start_ts = readTSC(); */
 			int ret = fn(&pktctx, sizeof(pktctx));
+			/* uint64_t end_ts = readTSC(); */
+			/* calc_latency_from_ts(start_ts, end_ts); */
+
 			/* DEBUG("action: %d\n", ret); */
 			batch[i]->len = pktctx.pkt_len;
 			apply_action(xsk, batch[i], ret);
-			pkt_count++;
-			clock_gettime(CLOCK_REALTIME, &spec);
-			uint64_t now = spec.tv_sec * 1000000 + spec.tv_nsec / 1000;
-			uint64_t delta = now - rprt_ts;
-			if (delta > 500000) {
-				INFO("TP: %d\n", pkt_count * 1000000 / delta);
-				pkt_count = 0;
-				rprt_ts = now;
-			}
+			/* pkt_count++; */
+			/* clock_gettime(CLOCK_REALTIME, &spec); */
+			/* uint64_t now = spec.tv_sec * 1000000 + spec.tv_nsec / 1000; */
+			/* uint64_t delta = now - rprt_ts; */
+			/* if (delta > 500000) { */
+			/* 	INFO("TP: %d\n", pkt_count * 1000000 / delta); */
+			/* 	pkt_count = 0; */
+			/* 	rprt_ts = now; */
+			/* } */
 		}
 	}
+	/* print_latency_result(); */
 }
 

@@ -54,8 +54,9 @@ static void init(void)
 	/* Setup map system */
 	char *names[] = {
 		"map_kcache",
+		"map_stats",
 	};
-	const int count = 1;
+	const int count = 2;
 	setup_map_system(names, count);
 	struct ubpf_vm *vm;
 	int ret = setup_ubpf_engine(UBPF_PROG_PATH, &vm);
