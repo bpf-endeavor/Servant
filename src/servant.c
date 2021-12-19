@@ -54,10 +54,9 @@ int main(int argc, char *argv[])
     char *map_names[] = {
 	    "xsks_map",
 	    "map_kcache",
-	    "map_keys",
-	    // "map_stats",
-	    // "map_parsing_con",
-	    //
+	    /* "map_keys", */
+	    "map_stats",
+	    /* "map_parsing_con", */
 	    "test_map",
 	    "data_map",
     };
