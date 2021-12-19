@@ -21,7 +21,8 @@ void usage(char *prog_name)
             "*\t eBPF:    path to eBPF program\n"
             "Options:\n"
             "\t num-frames, frame-size, batch-size,rx-size, tx-size,\n"
-            "\t copy-mode, skb-mode, xdp-prog, no-jit [disabled], uth\n"
+            "\t copy-mode, skb-mode, xdp-prog, no-jit [disabled], uth,\n"
+            "\t busypoll\n"
             );
     printf(desc, prog_name);
 }
@@ -57,7 +58,8 @@ void parse_args(int argc, char *argv[])
         SKB_MODE,
         XDP_PROG,
         NO_JIT,
-    UTH,
+        UTH,
+        BUSY_POLLING,
     };
     struct option long_opts[] = {
         {"help", no_argument, NULL, HELP},
@@ -71,6 +73,7 @@ void parse_args(int argc, char *argv[])
         {"xdp-prog", required_argument, NULL, XDP_PROG},
         {"no-jit", no_argument, NULL, NO_JIT},
         {"uth", required_argument, NULL, UTH},
+        {"busypoll", no_argument, NULL, BUSY_POLLING},
     };
     int ret;
     char optstring[] = "";
@@ -112,6 +115,9 @@ void parse_args(int argc, char *argv[])
             case UTH:
                 config.has_uth = 1;
                 config.uth_prog_path = optarg;
+                break;
+            case BUSY_POLLING:
+                config.busy_poll = 1;
                 break;
             case HELP:
                 usage(argv[0]);
