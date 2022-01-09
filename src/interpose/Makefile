@@ -8,7 +8,7 @@ CFLAGS = -Wall -Werror -fPIC -g -O2 -shared
 LIBS = -lbpf -lubpfPIC -lpthread -ldl -lrt
 
 # Objects from Servant core code (previous directory ../)
-SERVANT_OBJS = map.o brain.o log.o vchannel.o
+SERVANT_OBJS = map.o brain.o log.o vchannel.o interpose_link.o
 # Objects specifically for interpose library
 OTHER_OBJS =
 ALL_OBJS = $(SERVANT_OBJS) $(OTHER_OBJS)

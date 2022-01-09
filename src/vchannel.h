@@ -15,7 +15,8 @@ struct _interpose_msg {
 	uint8_t data[MAX_SHARED_OBJ_SIZE];
 	uint32_t size;
 	uint32_t index;
-} __attribute__((packed));
+	uint32_t valid;
+} __attribute__((packed,aligned(64)));
 
 /**
  * This struct is the layout of the shared memory region
@@ -26,10 +27,11 @@ struct _shared_channel {
 	int connected; // allow at most two objects to connect
 	uint32_t ring_size; // slots in a ring
 	struct llring *rings[COUNT_RINGS]; // rings[i] is for messages that are send to proc_i
-	pthread_spinlock_t lock;
+	/* pthread_spinlock_t lock; */
 	size_t count_elements; // Count elements in obj pool (also stack size)
-	int stack_top; // index of the top element in stack
-	uint32_t *index_stack;
+	/* int stack_top; // index of the top element in stack */
+	/* uint32_t *index_stack; */
+	uint32_t ring_top;
 	struct _interpose_msg *shared_objs; // shared objects are placed here
 };
 
@@ -79,6 +81,11 @@ int vc_tx_msg(struct vchannel *vc, void *buf, uint32_t size);
  * Copies message from shared memory region to the given buffer
  */
 int vc_rx_msg(struct vchannel *vc, void *buf, uint32_t size);
+
+/**
+ * @returns the number of messages waiting in queue
+ */
+int vc_count_msg(struct vchannel *vc);
 
 /**
  * Disconnect from channel

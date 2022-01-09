@@ -200,6 +200,7 @@ uint32_t tx(struct xsk_socket_info *xsk, struct xdp_desc **batch, uint32_t cnt)
 void
 apply_action(struct xsk_socket_info *xsk, struct xdp_desc *desc, int action)
 {
+	/* DEBUG("action: %d\n", action); */
 	/* int ret; */
 	// TODO: Implement the list of actions (DROP, TX, ...)
 	if (action == SEND) {

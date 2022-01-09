@@ -11,12 +11,15 @@
 
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <sys/epoll.h>
+#include <netinet/in.h>
 
 #include <ubpf.h>
 
 #include "../map.h"
 #include "../brain.h"
-#include "../vchannel.h"
+#include "../interpose_link.h"
+// #include "../vchannel.h"
 
 /* --------------------------------------------------------------- */
 /* List of functions that are going to override>
@@ -56,11 +59,67 @@ ssize_t sendmsg(int sockfd, const struct msghdr *msg, int flags)
 
 #ifdef RECVFROM
 /* Shared channel */
-static char channel_name[] = "rx_data_inject";
+/* static char channel_name[] = "rx_data_inject"; */
 static struct vchannel vc;
+#define MAX_EPOLL_FDS 16
+#define MAX_EPOLL_DATA 8
+
+struct _my_ep_data{
+	int fd;
+	epoll_data_t data;
+};
+
+struct my_epoll_data {
+	int epfd;
+	struct _my_ep_data following [MAX_EPOLL_DATA];
+};
+static struct my_epoll_data epdata[MAX_EPOLL_FDS] = {};
+
+void _print_socket(int fd)
+{
+	int ret;
+	struct sockaddr_in addr;
+	socklen_t addrlen = sizeof(addr);
+	ret = getsockname(fd, &addr, &addrlen);
+	if (!ret) {
+		printf("*\t%d: port %d ip: %d (%d)\n", fd,
+				ntohs(addr.sin_port),
+				ntohl(addr.sin_addr.s_addr), ret);
+	}
+}
+
+static inline int
+_get_epoll_index(int epfd)
+{
+	int min_empty = -1;
+	for (int i = 0; i < MAX_EPOLL_FDS; i++) {
+		/* if (epdata[i].epfd > 0) { */
+		/* 	for (int j = 0; j < MAX_EPOLL_DATA; j++) { */
+		/* 		int fd = epdata[i].following[j].fd; */
+		/* 		if (fd) { */
+		/* 			ret = getsockname(fd, &addr, &addrlen); */
+		/* 			if (!ret) { */
+		/* 				printf("*\t%d-%d: port %d ip: %d (%d)\n", epdata[i].epfd, fd, */
+		/* 						ntohs(addr.sin_port), ntohl(addr.sin_addr.s_addr), ret); */
+		/* 			} */
+		/* 		} */
+		/* 	} */
+		/* } */
+
+		if (epdata[i].epfd == epfd) {
+			/* printf("\n"); */
+			return i;
+		} else if(epdata[i].epfd == 0
+				&& (i < min_empty || min_empty < 0)) {
+			min_empty = i;
+		}
+	}
+	/* printf("\n"); */
+	return min_empty;
+}
 
 static ssize_t (*libc_recvfrom)(int sockfd, void *buf, size_t len, int flags,
-    struct sockaddr *src_addr, socklen_t *addrlen) = NULL;
+		struct sockaddr *src_addr, socklen_t *addrlen) = NULL;
 
 ssize_t recvfrom(int sockfd, void *buf, size_t len, int flags,
 		struct sockaddr *src_addr, socklen_t *addrlen)
@@ -80,6 +139,112 @@ ssize_t recvfrom(int sockfd, void *buf, size_t len, int flags,
 	}
 	return ret;
 }
+
+
+/* static int (*libc_epoll_create1)(int flags) = NULL; */
+/* int epoll_create1(int flags) */
+/* { */
+/* 	ensure_init(); */
+/* 	return libc_epoll_create1(flags); */
+/* } */
+
+/* int epoll_create(int size) */
+/* { */
+/* 	return epoll_create1(0); */
+/* } */
+
+static int (*libc_epoll_ctl)(int epfd, int op, int fd,
+    struct epoll_event *event) = NULL;
+int epoll_ctl(int epfd, int op, int fd, struct epoll_event *event)
+{
+	ensure_init();
+	int ep_index = _get_epoll_index(epfd);
+	if (op == EPOLL_CTL_ADD || op == EPOLL_CTL_MOD) {
+		if (ep_index >= 0) {
+			struct my_epoll_data *ed = (epdata + ep_index);
+			if (ed->epfd == 0) {
+				// It is a new descriptor
+				ed->epfd = epfd;
+				ed->following[0].fd = fd;
+				ed->following[0].data = event->data;
+			} else {
+				// Descriptor found
+				for (int findex = 0;findex < MAX_EPOLL_DATA; findex++) {
+					if (ed->following[findex].fd == 0) {
+						// A free data slot found
+						ed->following[findex].fd = fd;
+						ed->following[findex].data = event->data;
+						break;
+					}
+				}
+			}
+		}
+	} else if (op == EPOLL_CTL_DEL) {
+		if (ep_index > 0) {
+			// Invalidate
+			epdata[ep_index].epfd = 0;
+			for (int i = 0; i < MAX_EPOLL_DATA; i++) {
+				epdata[ep_index].following[i].fd = 0;
+			}
+		}
+	}
+	return libc_epoll_ctl(epfd, op, fd, event);
+}
+
+static int (*libc_epoll_wait)(int epfd, struct epoll_event *events, int
+		maxevents, int timeout) = NULL;
+
+int epoll_wait(int epfd, struct epoll_event *events, int maxevents,
+		int timeout)
+{
+	ensure_init();
+	// expecting at least one buffer to work
+	if (maxevents < 1) {
+		/* printf("using linux (1)\n"); */
+		return libc_epoll_wait(epfd, events, maxevents, timeout);
+	}
+	int epfd_index = _get_epoll_index(epfd);
+	if (epfd_index < 0 || epdata[epfd_index].epfd != epfd) {
+		// do not know this epfd
+		/* printf("using linux (2) selected index: %d index fd: %d looking for: %d\n", epfd_index, epdata[epfd_index].epfd, epfd); */
+		return libc_epoll_wait(epfd, events, maxevents, timeout);
+	}
+	struct _my_ep_data data = {};
+	// TODO: starting from one to bypass listenning socket
+	for (int i = 1; i < MAX_EPOLL_DATA; i++) {
+		if (epdata[epfd_index].following[i].fd) {
+			data = epdata[epfd_index].following[i];
+			break;
+		}
+	}
+	if (!data.fd) {
+		// don't know the data
+		/* printf("using linux (3)\n"); */
+		return libc_epoll_wait(epfd, events, maxevents, timeout);
+	}
+
+	/* printf("checking both links\n"); */
+	const int has_timeout = timeout > -1;
+	const int to = has_timeout ? timeout : 20; // ms
+	int ret = 0;
+	while (ret == 0) {
+		ret = vc_count_msg(&vc);
+		if (ret) {
+			/* _print_socket(data.fd); */
+			// There are some messages from runtime.
+			/* printf("fd: %d, data: %d", data.fd, data.data.u32); */
+			events[0].events = EPOLLIN;
+			events[0].data = data.data;
+			return 1;
+		} else {
+			ret = libc_epoll_wait(epfd, events, maxevents, to);
+			if (has_timeout)
+				break;
+		}
+	}
+	return ret;
+}
+
 #endif
 
 /* Helper functions */
@@ -122,21 +287,32 @@ static void init(void)
 #endif
 
 #ifdef RECVFROM
+	/* void *handle; */
+	/* if ((handle = dlopen("libc.so.6", RTLD_LAZY)) == NULL) { */
+	/* 	perror("tas libc lookup: dlopen on libc failed"); */
+	/* 	abort(); */
+	/* } */
+
 	libc_recvfrom = bind_symbol("recvfrom");
+	/* libc_epoll_create1 = bind_symbol(handle, "epoll_create1"); */
+	/* libc_epoll_create1 = bind_symbol("epoll_create1"); */
+	libc_epoll_ctl = bind_symbol("epoll_ctl");
+	libc_epoll_wait = bind_symbol("epoll_wait");
 
 	/* Setup shared channel */
-	struct channel_attr ch_attr = {
-		.name = channel_name,
-		.ring_size = 512,
-	};
-	ret = connect_shared_channel(&ch_attr, &vc);
+	ret = setup_interpose_vchannel(&vc);
+	/* struct channel_attr ch_attr = { */
+	/* 	.name = channel_name, */
+	/* 	.ring_size = 512, */
+	/* }; */
+	/* ret = connect_shared_channel(&ch_attr, &vc); */
 	if (ret) {
 		printf("Failed to connect to shared channel\n");
 		assert(0);
 	}
 	/* printf("Connect to shared channel complete\n"); */
 #endif
-	/* printf("Bind sybmols complete\n"); */
+	printf("Initializing interpose finished\n");
 }
 
 static inline void ensure_init(void)

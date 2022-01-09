@@ -16,6 +16,7 @@
 #define MULTI_PRODUCER 0
 #define MULTI_CONSUMER 0
 
+#define ROUND_TO_64(x) ((x + 64) & (~0x3f))
 
 int
 connect_shared_channel(struct channel_attr *attr, struct vchannel *vc)
@@ -23,12 +24,13 @@ connect_shared_channel(struct channel_attr *attr, struct vchannel *vc)
 	// Number of slots in a ring
 	const int slots = attr->ring_size;
 	// Size of a ring in bytes
-	size_t ring_size = llring_bytes_with_slots(slots);
+	size_t ring_size = ROUND_TO_64(llring_bytes_with_slots(slots));
 	// Size of stack region in bytes
-	size_t stack_size = COUNT_RINGS * slots * sizeof(uint32_t);
+	size_t stack_size = 0;
+	/* size_t stack_size = ROUND_TO_64(COUNT_RINGS * slots * sizeof(uint32_t)); */
 	// Size of shared object region in bytes
-	size_t shared_obj_memory_size = COUNT_RINGS * slots *
-		sizeof(struct _interpose_msg);
+	size_t shared_obj_memory_size = ROUND_TO_64(COUNT_RINGS * slots *
+			sizeof(struct _interpose_msg));
 	size_t shared_region_size = sizeof(struct _shared_channel) +
 		COUNT_RINGS * ring_size + stack_size + shared_obj_memory_size;
 	int ret;
@@ -66,8 +68,8 @@ connect_shared_channel(struct channel_attr *attr, struct vchannel *vc)
 			struct llring *r = buf +
 				sizeof(struct _shared_channel) +
 				i * ring_size;
-			ret = llring_init(r, slots, SINGLE_PRODUCER,
-					SINGLE_CONSUMER);
+			ret = llring_init(r, slots, MULTI_PRODUCER,
+					MULTI_CONSUMER);
 			if (ret) {
 				munmap(buf, shared_region_size);
 				shm_unlink(shm_path);
@@ -76,18 +78,26 @@ connect_shared_channel(struct channel_attr *attr, struct vchannel *vc)
 			ch->rings[i] = r;
 		}
 		/* Init spin lock */
-		pthread_spin_init(&ch->lock, PTHREAD_PROCESS_SHARED);
+		/* pthread_spin_init(&ch->lock, PTHREAD_PROCESS_SHARED); */
 		/* Initialize the stack region */
 		ch->count_elements = COUNT_RINGS * slots;
-		ch->stack_top = ch->count_elements - 1;
-		ch->index_stack = buf + sizeof(struct _shared_channel) +
-			COUNT_RINGS * ring_size;
-		for (int i = 0; i < ch->count_elements; i++) {
-			ch->index_stack[i] = i;
-		}
+		/* ch->stack_top = ch->count_elements - 1; */
+		/* ch->index_stack = buf + sizeof(struct _shared_channel) + */
+		/* 	COUNT_RINGS * ring_size; */
+		/* for (int i = 0; i < ch->count_elements; i++) { */
+		/* 	ch->index_stack[i] = i; */
+		/* } */
+
+		ch->ring_top = 0;
+
 		/* Initialize shared object memory */
 		ch->shared_objs = buf + sizeof(struct _shared_channel) +
 			COUNT_RINGS * ring_size + stack_size;
+		for (int i = 0; i < ch->count_elements; i++) {
+			ch->shared_objs[i].size = 0;
+			ch->shared_objs[i].index = i;
+			ch->shared_objs[i].valid = 0;
+		}
 	} else {
 		shm_fd = shm_open(shm_path, (O_CREAT | O_RDWR),
 				(S_IREAD | S_IWRITE));
@@ -154,34 +164,46 @@ connect_shared_channel(struct channel_attr *attr, struct vchannel *vc)
 int
 vc_tx_msg(struct vchannel *vc, void *buf, uint32_t size)
 {
+	DEBUG("send: %p %d\n", buf, size);
 	assert(size < MAX_SHARED_OBJ_SIZE);
 	// This only works for when there are only two processes
 	int other = 1 - vc->proc_id;
 	struct _shared_channel *ch = vc->ch;
 	// TODO: Ungaurded critical section
+	//
 	/* Since there is only a single consumer of indexes it is fine to
 	 * check there are some available elements without having the locks */
-	if (ch->stack_top < 0) {
-		/* No free element to use */
-		return -1;
-	}
-	pthread_spin_lock(&ch->lock);
-	int top = ch->stack_top;
-	ch->stack_top--; // pop an index
-	int index = ch->index_stack[top];
-	pthread_spin_unlock(&ch->lock);
+	/* if (ch->stack_top < 0) { */
+	/* 	/1* No free element to use *1/ */
+	/* 	return -1; */
+	/* } */
+	/* pthread_spin_lock(&ch->lock); */
+	/* int top = ch->stack_top; */
+	/* ch->stack_top--; // pop an index */
+	/* int index = ch->index_stack[top]; */
+	/* pthread_spin_unlock(&ch->lock); */
+
+	int index = ch->ring_top;
 	struct _interpose_msg *msg = (ch->shared_objs + index);
-	msg->index = index;
+	if (msg->valid) {
+		printf("vchannel.c: Overriding message\n");
+	}
+	index = (index + 1) % ch->count_elements;
 	memcpy(msg->data, buf, size);
+	msg->size = size;
+	msg->valid = 1;
 	// Put pointer in the queue so the receiver can find the data
 	int ret = llring_sp_enqueue_burst(ch->rings[other], (void **)&msg, 1);
 	ret &= 0x7fffffff;
-	return ret;
+	if (ret < 1)
+		return -1;
+	return 0;
 }
 
 int
 vc_rx_msg(struct vchannel *vc, void *buf, uint32_t size)
 {
+	DEBUG("recv: %p %d\n", buf, size);
 	// This only works for when there are only two processes
 	int id = vc->proc_id;
 	struct _interpose_msg *msg;
@@ -191,14 +213,37 @@ vc_rx_msg(struct vchannel *vc, void *buf, uint32_t size)
 		// No data to receive
 		return 0;
 	}
-	memcpy(buf, msg->data, msg->size);
+	// TODO: FIX, we are truncating data here!
+	int len = msg->size < size ? msg->size : size;
+	memcpy(buf, msg->data, len);
+	printf("data (idx: %d, sz:%d, valid: %d):\n", msg->index, msg->size, msg->valid);
+	unsigned char *tmp = msg->data;
+	for (int i = 0; i < msg->size ;i++) {
+		if (tmp[i] >31 && tmp[i] <127) {
+			putchar(tmp[i]);
+		} else if (tmp[i] == '\n') {
+			putchar('\n');
+		} else {
+			printf(" 0x%x ", tmp[i]);
+		}
+	}
+	printf("\n\n");
+	msg->valid = 0;
+	msg->size = 0;
 	// Ungaurded critical section
-	pthread_spin_lock(&vc->ch->lock);
-	int top = vc->ch->stack_top;
-	vc->ch->index_stack[top + 1] = msg->index;
-	vc->ch->stack_top = top + 1;
-	pthread_spin_unlock(&vc->ch->lock);
+	/* pthread_spin_lock(&vc->ch->lock); */
+	/* int top = vc->ch->stack_top; */
+	/* vc->ch->index_stack[top + 1] = msg->index; */
+	/* vc->ch->stack_top = top + 1; */
+	/* pthread_spin_unlock(&vc->ch->lock); */
 	return msg->size;
+}
+
+int
+vc_count_msg(struct vchannel *vc)
+{
+	int id = vc->proc_id;
+	return llring_count(vc->ch->rings[id]);
 }
 
 int

@@ -8,9 +8,9 @@
 
 // Context parameter type
 struct pktctx {
-	void *data;
-	void *data_end;
-	uint64_t pkt_len;
+	void *data; // in: start of the packet
+	void *data_end; // in: end of the packet
+	uint64_t pkt_len; // inout: final length of packet
 };
 
 #endif

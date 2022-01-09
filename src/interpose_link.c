@@ -1,18 +1,21 @@
 #include <stdint.h>
 #include "interpose_link.h"
-#include "vchannel.h"
 #include "log.h"
 
 static struct vchannel vc;
 
-int setup_interpose_link(void)
+int setup_interpose_link(void) {
+	return setup_interpose_vchannel(&vc);
+}
+
+int setup_interpose_vchannel(struct vchannel *vc)
 {
 	static char channel_name[] = "rx_data_inject";
 	struct channel_attr ch_attr = {
 		.name = channel_name,
 		.ring_size = 512,
 	};
-	int ret = connect_shared_channel(&ch_attr, &vc);
+	int ret = connect_shared_channel(&ch_attr, vc);
 	if (ret) {
 		ERROR("Failed in connecting to shared channel\n");
 		return -1;
