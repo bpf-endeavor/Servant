@@ -2,9 +2,10 @@ CC = clang-13
 # CC = gcc
 # CFLAGS = -g -O0 -Wall
 CFLAGS = -O2 -g -Wall
-LDFLAGS = -lbpf -lubpf -lm -lpthread
+LDFLAGS = -lbpf -lubpf -lm -lpthread -lrt
 
-OBJS = servant.o sockets.o heart.o brain.o config.o service_stats.o log.o map.o
+OBJS = servant.o sockets.o heart.o brain.o config.o service_stats.o log.o \
+		map.o interpose_link.o vchannel.o
 HEADERS = $(wildcard ./*.h)
 # $(info $(HEADERS))
 

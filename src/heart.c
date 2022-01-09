@@ -10,6 +10,7 @@
 #include "brain.h"
 #include "log.h"
 #include "include/packet_context.h"
+#include "interpose_link.h"
 
 #include <time.h>
 
@@ -204,6 +205,17 @@ apply_action(struct xsk_socket_info *xsk, struct xdp_desc *desc, int action)
 	if (action == SEND) {
 		/* ret = tx(xsk, &desc, 1); */
 		tx(xsk, &desc, 1);
+	} else if (action == PASS) {
+		/* Send to application using the interpose layer */
+		uint64_t addr = desc->addr;
+		addr = xsk_umem__add_offset_to_addr(addr);
+		void *ctx = xsk_umem__get_data(xsk->umem->buffer, addr);
+		int ret = send_interpose_msg(ctx, desc->len);
+		if (ret < 0) {
+			// failed to pass packet
+			drop(xsk, &desc, 1);
+			DEBUG("Failed to pass packect");
+		}
 	} else {
 		drop(xsk, &desc, 1);
 	}

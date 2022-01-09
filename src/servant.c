@@ -24,6 +24,7 @@
 #include "log.h"
 #include "heart.h"
 #include "brain.h"
+#include "interpose_link.h"
 
 
 static void int_exit() {
@@ -81,6 +82,8 @@ int main(int argc, char *argv[])
 	    INFO("UTH has not implemented yet\n");
     }
 
+    setup_interpose_link();
+
     // Add interrupt handler
     signal(SIGINT,  int_exit);
     signal(SIGTERM, int_exit);
@@ -102,6 +105,7 @@ int main(int argc, char *argv[])
 
     // Clean up
     /* pthread_join(report_thread, NULL); */
+    teardown_interpose_link();
     ubpf_destroy(vm);
 teardown:
     if (config.custom_kern_prog && config.custom_kern_path[0] != '-') {
