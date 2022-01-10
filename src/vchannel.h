@@ -26,6 +26,8 @@ struct _shared_channel {
 	uint64_t region_size; // Total size of the shared memory
 	int connected; // allow at most two objects to connect
 	uint32_t ring_size; // slots in a ring
+	/* uint32_t in; */
+	/* uint32_t out; */
 	struct llring *rings[COUNT_RINGS]; // rings[i] is for messages that are send to proc_i
 	/* pthread_spinlock_t lock; */
 	size_t count_elements; // Count elements in obj pool (also stack size)

@@ -164,11 +164,12 @@ connect_shared_channel(struct channel_attr *attr, struct vchannel *vc)
 int
 vc_tx_msg(struct vchannel *vc, void *buf, uint32_t size)
 {
-	DEBUG("send: %p %d\n", buf, size);
+	/* DEBUG("send: %p %d\n", buf, size); */
 	assert(size < MAX_SHARED_OBJ_SIZE);
 	// This only works for when there are only two processes
 	int other = 1 - vc->proc_id;
 	struct _shared_channel *ch = vc->ch;
+
 	// TODO: Ungaurded critical section
 	//
 	/* Since there is only a single consumer of indexes it is fine to
@@ -184,59 +185,66 @@ vc_tx_msg(struct vchannel *vc, void *buf, uint32_t size)
 	/* pthread_spin_unlock(&ch->lock); */
 
 	int index = ch->ring_top;
+	ch->ring_top = (index + 1) % ch->count_elements;
 	struct _interpose_msg *msg = (ch->shared_objs + index);
 	if (msg->valid) {
 		printf("vchannel.c: Overriding message\n");
 	}
-	index = (index + 1) % ch->count_elements;
 	memcpy(msg->data, buf, size);
 	msg->size = size;
 	msg->valid = 1;
+	msg->index = index;
+
 	// Put pointer in the queue so the receiver can find the data
 	int ret = llring_sp_enqueue_burst(ch->rings[other], (void **)&msg, 1);
 	ret &= 0x7fffffff;
 	if (ret < 1)
 		return -1;
+	/* vc->ch->in++; */
 	return 0;
 }
 
 int
 vc_rx_msg(struct vchannel *vc, void *buf, uint32_t size)
 {
-	DEBUG("recv: %p %d\n", buf, size);
-	// This only works for when there are only two processes
+	/* DEBUG("recv: %p %d\n", buf, size); */
 	int id = vc->proc_id;
 	struct _interpose_msg *msg;
 	int ret = llring_sc_dequeue_burst(vc->ch->rings[id],
 			(void **)&msg, 1);
-	if (ret < 1) {
+	if (ret < 1 || !msg->valid) {
 		// No data to receive
 		return 0;
 	}
-	// TODO: FIX, we are truncating data here!
+	/* vc->ch->out++; */
+	// TODO: FIX, we might be truncating data here!
 	int len = msg->size < size ? msg->size : size;
 	memcpy(buf, msg->data, len);
-	printf("data (idx: %d, sz:%d, valid: %d):\n", msg->index, msg->size, msg->valid);
-	unsigned char *tmp = msg->data;
-	for (int i = 0; i < msg->size ;i++) {
-		if (tmp[i] >31 && tmp[i] <127) {
-			putchar(tmp[i]);
-		} else if (tmp[i] == '\n') {
-			putchar('\n');
-		} else {
-			printf(" 0x%x ", tmp[i]);
-		}
-	}
-	printf("\n\n");
+
+	// Debuging the sent message
+	/* printf("data (idx: %d, sz:%d, valid: %d):\n", msg->index, msg->size, msg->valid); */
+	/* unsigned char *tmp = buf; */
+	/* for (int i = 0; i < len ;i++) { */
+	/* 	if (tmp[i] >31 && tmp[i] <127) { */
+	/* 		putchar(tmp[i]); */
+	/* 	} else if (tmp[i] == '\n') { */
+	/* 		putchar('\n'); */
+	/* 	} else { */
+	/* 		printf(" 0x%x ", tmp[i]); */
+	/* 	} */
+	/* } */
+	/* printf("\n\n"); */
+
 	msg->valid = 0;
 	msg->size = 0;
+
 	// Ungaurded critical section
 	/* pthread_spin_lock(&vc->ch->lock); */
 	/* int top = vc->ch->stack_top; */
 	/* vc->ch->index_stack[top + 1] = msg->index; */
 	/* vc->ch->stack_top = top + 1; */
 	/* pthread_spin_unlock(&vc->ch->lock); */
-	return msg->size;
+	return len;
 }
 
 int
@@ -244,6 +252,7 @@ vc_count_msg(struct vchannel *vc)
 {
 	int id = vc->proc_id;
 	return llring_count(vc->ch->rings[id]);
+	/* return vc->ch->in - vc->ch->out; */
 }
 
 int

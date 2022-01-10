@@ -16,6 +16,9 @@
 
 #include <ubpf.h>
 
+#include <linux/ip.h>
+#include <linux/udp.h>
+
 #include "../map.h"
 #include "../brain.h"
 #include "../interpose_link.h"
@@ -97,11 +100,7 @@ _get_epoll_index(int epfd)
 		/* 	for (int j = 0; j < MAX_EPOLL_DATA; j++) { */
 		/* 		int fd = epdata[i].following[j].fd; */
 		/* 		if (fd) { */
-		/* 			ret = getsockname(fd, &addr, &addrlen); */
-		/* 			if (!ret) { */
-		/* 				printf("*\t%d-%d: port %d ip: %d (%d)\n", epdata[i].epfd, fd, */
-		/* 						ntohs(addr.sin_port), ntohl(addr.sin_addr.s_addr), ret); */
-		/* 			} */
+		/* 			_print_socket(fd) */
 		/* 		} */
 		/* 	} */
 		/* } */
@@ -137,6 +136,18 @@ ssize_t recvfrom(int sockfd, void *buf, size_t len, int flags,
 		return libc_recvfrom(sockfd, buf, len, flags, src_addr,
 				addrlen);
 	}
+	/* Expecting the first header to be IP header and next be UDP */
+	struct iphdr *ip = (struct iphdr *)buf;
+	struct udphdr *udp = (struct udphdr *)(ip + 1);
+	struct sockaddr_in *addr = (struct sockaddr_in *)src_addr;
+	addr->sin_family = AF_INET;
+	addr->sin_port = udp->source;
+	addr->sin_addr.s_addr = ip->saddr;
+	const int hdrlen = sizeof(struct iphdr) + sizeof(struct udphdr);
+	/* printf("from: %d %d len: %ld hdrlen: %d\n", ntohs(udp->source), */
+	/* 		ntohl(ip->saddr), ret, hdrlen); */
+	ret -= hdrlen;
+	memmove(buf, buf + hdrlen, ret);
 	return ret;
 }
 
@@ -158,6 +169,17 @@ static int (*libc_epoll_ctl)(int epfd, int op, int fd,
 int epoll_ctl(int epfd, int op, int fd, struct epoll_event *event)
 {
 	ensure_init();
+
+	int ret;
+	struct sockaddr_in addr;
+	socklen_t addrlen = sizeof(addr);
+	ret = getsockname(fd, &addr, &addrlen);
+	if (ret || ntohs(addr.sin_port) != 8080) {
+		// not a file descriptor that we are intrested in
+		return libc_epoll_ctl(epfd, op, fd, event);
+	}
+
+	/* printf("epoll ctl\n"); */
 	int ep_index = _get_epoll_index(epfd);
 	if (op == EPOLL_CTL_ADD || op == EPOLL_CTL_MOD) {
 		if (ep_index >= 0) {
@@ -170,7 +192,7 @@ int epoll_ctl(int epfd, int op, int fd, struct epoll_event *event)
 			} else {
 				// Descriptor found
 				for (int findex = 0;findex < MAX_EPOLL_DATA; findex++) {
-					if (ed->following[findex].fd == 0) {
+					if (ed->following[findex].fd == 0 || ed->following[findex].fd == fd) {
 						// A free data slot found
 						ed->following[findex].fd = fd;
 						ed->following[findex].data = event->data;
@@ -182,9 +204,10 @@ int epoll_ctl(int epfd, int op, int fd, struct epoll_event *event)
 	} else if (op == EPOLL_CTL_DEL) {
 		if (ep_index > 0) {
 			// Invalidate
-			epdata[ep_index].epfd = 0;
 			for (int i = 0; i < MAX_EPOLL_DATA; i++) {
-				epdata[ep_index].following[i].fd = 0;
+				if  (epdata[ep_index].following[i].fd == fd) {
+					epdata[ep_index].following[i].fd = 0;
+				}
 			}
 		}
 	}
@@ -197,7 +220,10 @@ static int (*libc_epoll_wait)(int epfd, struct epoll_event *events, int
 int epoll_wait(int epfd, struct epoll_event *events, int maxevents,
 		int timeout)
 {
+	timeout = 0;
 	ensure_init();
+	/* int q = vc_count_msg(&vc); */
+	/* printf("in queue %d %d %d\n", q, 0, 0); */
 	// expecting at least one buffer to work
 	if (maxevents < 1) {
 		/* printf("using linux (1)\n"); */
@@ -211,7 +237,7 @@ int epoll_wait(int epfd, struct epoll_event *events, int maxevents,
 	}
 	struct _my_ep_data data = {};
 	// TODO: starting from one to bypass listenning socket
-	for (int i = 1; i < MAX_EPOLL_DATA; i++) {
+	for (int i = 0; i < MAX_EPOLL_DATA; i++) {
 		if (epdata[epfd_index].following[i].fd) {
 			data = epdata[epfd_index].following[i];
 			break;
@@ -225,7 +251,7 @@ int epoll_wait(int epfd, struct epoll_event *events, int maxevents,
 
 	/* printf("checking both links\n"); */
 	const int has_timeout = timeout > -1;
-	const int to = has_timeout ? timeout : 20; // ms
+	const int to = has_timeout ? timeout : 0; // ms
 	int ret = 0;
 	while (ret == 0) {
 		ret = vc_count_msg(&vc);
@@ -238,8 +264,8 @@ int epoll_wait(int epfd, struct epoll_event *events, int maxevents,
 			return 1;
 		} else {
 			ret = libc_epoll_wait(epfd, events, maxevents, to);
-			if (has_timeout)
-				break;
+			/* if (has_timeout) */
+			/* 	break; */
 		}
 	}
 	return ret;

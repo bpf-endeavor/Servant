@@ -211,12 +211,15 @@ apply_action(struct xsk_socket_info *xsk, struct xdp_desc *desc, int action)
 		uint64_t addr = desc->addr;
 		addr = xsk_umem__add_offset_to_addr(addr);
 		void *ctx = xsk_umem__get_data(xsk->umem->buffer, addr);
+		/* Note: On the other side interpose.c cxpects both IP and UDP
+		 * headers to be provided to answer "recvfrom" request. */
 		int ret = send_interpose_msg(ctx, desc->len);
 		if (ret < 0) {
 			// failed to pass packet
-			drop(xsk, &desc, 1);
 			DEBUG("Failed to pass packect");
 		}
+		// Free the AF_XDP descriptor
+		drop(xsk, &desc, 1);
 	} else {
 		drop(xsk, &desc, 1);
 	}
@@ -233,7 +236,6 @@ void
 pump_packets(struct xsk_socket_info *xsk, struct ubpf_vm *vm)
 {
 	/* static uint64_t pkt_count = 0; */
-
 	/* struct timespec spec = {}; */
 	/* clock_gettime(CLOCK_REALTIME, &spec); */
 	/* uint64_t rprt_ts = spec.tv_sec * 1000000 + spec.tv_nsec / 1000; */
@@ -275,6 +277,7 @@ pump_packets(struct xsk_socket_info *xsk, struct ubpf_vm *vm)
 			pktctx.data = ctx;
 			pktctx.data_end = ctx + ctx_len;
 			pktctx.pkt_len = ctx_len;
+			pktctx.trim_head = 0;
 			/* int ret = run_vm(vm, &pktctx, sizeof(pktctx)); */
 			/* uint64_t start_ts = readTSC(); */
 			int ret = fn(&pktctx, sizeof(pktctx));
@@ -283,7 +286,9 @@ pump_packets(struct xsk_socket_info *xsk, struct ubpf_vm *vm)
 
 			/* DEBUG("action: %d\n", ret); */
 			batch[i]->len = pktctx.pkt_len;
+			batch[i]->addr += pktctx.trim_head;
 			apply_action(xsk, batch[i], ret);
+
 			/* pkt_count++; */
 			/* clock_gettime(CLOCK_REALTIME, &spec); */
 			/* uint64_t now = spec.tv_sec * 1000000 + spec.tv_nsec / 1000; */
