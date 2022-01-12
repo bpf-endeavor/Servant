@@ -121,8 +121,13 @@ This instructions are for preparing the cloudlab environment.
 
 8. Compiling lib-interpose
 
-    ```
-    ```
+    Use `make` command in the `src/interpose` directory. It will need
+    a version of `ubpf` that has been compiled with `-fPIC` flags.
+    a diff of changes for `ubpf` make file to compile for this purpose
+    is provided in this directory. apply the diff and make then install ubpf.
+
+    **Note:** ubpf with `-fPIC` flag is not used in the runtime. It is
+    only used in the lib-interpose.
 
 For building the examples use `make` in their directory.
 
