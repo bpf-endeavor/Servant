@@ -1,7 +1,9 @@
 # About
+
 This instructions are for preparing the cloudlab environment.
 
 # Main Machine (Test machine)
+
 1. Install Linux kernel 13 + rdtsc instructions
 
     ```
@@ -9,6 +11,7 @@ This instructions are for preparing the cloudlab environment.
     sudo dpkg -i *.deb
     sudo reboot
     ```
+    > The packages for installing the kernel is available at ebpf-bench repo.
 
 2. Install uBPF library
 
@@ -48,6 +51,7 @@ This instructions are for preparing the cloudlab environment.
     sudo apt update
     sudo apt install -y clang-11 clang-9 llvm-11 llvm-9
     ```
+    > Install `llvm-13`. You need to get installation script from the website (also available in /docs directory).
 
     Update the `$HOME/.bashrc` and append this line. Then source the `bashrc` file.
 
@@ -97,7 +101,30 @@ This instructions are for preparing the cloudlab environment.
     sudo ethtool  -U enp24s0f1 flow-type udp4 dst-port 8080 action 2
     ```
 
-    For building the examples use `make` in their directory.
+7. Busypolling
+
+   Use following script to enable/disable busypolling configuration.
+
+    ```
+    #! /bin/bash
+
+    dev=enp24s0f1
+
+    if [ "x$1" = "xoff" ]; then
+        echo 0 | sudo tee /sys/class/net/$dev/napi_defer_hard_irqs
+        echo 0 | sudo tee /sys/class/net/$dev/gro_flush_timeout
+    else
+        echo 2 | sudo tee /sys/class/net/$dev/napi_defer_hard_irqs
+        echo 200000 | sudo tee /sys/class/net/$dev/gro_flush_timeout
+    fi
+    ```
+
+8. Compiling lib-interpose
+
+    ```
+    ```
+
+For building the examples use `make` in their directory.
 
 # Workload Generator machine
 
@@ -184,17 +211,19 @@ This instructions are for preparing the cloudlab environment.
 
 # Measurments
 
-On the main machine
+1. If the experiment tool does not provide throughput information:
 
-```
-./mmwatch 'ethtool -S enp24s0f1 | egrep ".*: [1-9][0-9]*$"'
-```
+    ```
+    ./mmwatch 'ethtool -S enp24s0f1 | egrep ".*: [1-9][0-9]*$"'
+    ```
 
 # Generating Load
 
 ## Mutilate
 
 * Loading memcached server
+
+> Old! pass load to then next script and it will do the job.
 
     ```
     #!/bin/bash
@@ -204,30 +233,41 @@ On the main machine
 
 * Stressing memcached server
 
+> Script for running `mutilate` experiments
+
     ```
     #!/bin/bash
 
     ip=192.168.1.1
     port=8080
+    conn=16
+    duration=60
+
     recs=10000000
-    general="-K fb_key -V fb_value -r $recs --popularity=zipf:0.99"
+    # recs=10000
+    # recs=100
+    general="-K fb_key -V fb_value -r $recs --popularity=zipf:1.25"
     # general="-K 30 -V 200 -r $recs"
+
     bin=./mutilate/mutilateudp
     bin_loader=./mutilate/mutilate
 
     if [ "x$1" = "xload" ]; then
+        # Load the database
         $bin_loader -s $ip --loadonly $general
     elif [ "x$1" = "xlow" ]; then
         # Low load for testing
         $bin -s $ip:$port -C 1 -c 1 --noload --time 5 $general
+    elif [ "x$1" = "xlow2" ]; then
+        # Low load and long duration for testing
+        $bin -s $ip:$port -C 1 -c 1 --noload --time 60 $general
     else
         # Setup the Agent
-        $bin -A -T 32 &> /dev/null &
+        $bin -A -T 32 &
         sleep 1
-
         # Setup the Master
-
-        $bin -s $ip:$port -C 1 -c 4 --noload -a 127.0.0.1 --time 30 $general
+        $bin -s $ip:$port -C 1 -c $conn --noload -a 127.0.0.1 \
+            --time $duration $general
     fi
 
     pkill mutilate
