@@ -4,27 +4,50 @@ This instructions are for preparing the cloudlab environment.
 
 # Main Machine (Test machine)
 
-1. Install Linux kernel 13 + rdtsc instructions
+1. Install Linux kernel 5.13 + rdtsc instructions
 
-    ```
+    ```bash
     cd /proj/progstack-PG0/farbod/ubuntu
     sudo dpkg -i *.deb
+    ```
+    
+    > The packages for installing the kernel is available at ebpf-bench repo.
+    
+    Also enable huge pages. Edit `/etc/default/grub`.
+
+    ```bash
+    GRUB_CMDLINE_LINUX_DEFAULT="default_hugepagesz=1G hugepagesz=1G hugepages=16"
+    ```
+
+    then
+
+    ```bash
+    sudo update-grub
     sudo reboot
     ```
-    > The packages for installing the kernel is available at ebpf-bench repo.
 
-2. Install uBPF library
-
+    After rebooting the 1GB huge pages are available and the kerne should be 5.13.
+    
+    ```bash
+    uname -a 
+    # Linux hostname 5.13.0-custom-ebpf-rdtsc #6 SMP Mon Sep 27 15:45:14 BST 2021 x86_64 x86_64 x86_64 GNU/Linux
     ```
+
+3. 2. Install uBPF library
+
+    ```bash
     git clone https://fyro.ir/fshahinfar1/uBPF.git
     cd uBPF/vm
     make
     sudo make install
     ```
+    
+    After these steps `libubpf` will be installed to the system.
+    Other projects can link to it using `-lbpf` flag.
 
 3. Install libbpf library
 
-    ```
+    ```bash
     # Some dependencies you might need
     sudo apt update
     sudo apt install -y libz-dev libelf-dev
@@ -47,22 +70,23 @@ This instructions are for preparing the cloudlab environment.
 
     First install some dependenceis.
 
-    ```
-    sudo apt update
-    sudo apt install -y clang-11 clang-9 llvm-11 llvm-9
+    ```bash
+    # sudo apt update
+    # sudo apt install -y clang-11 clang-9 llvm-11 llvm-9
+    # Use llvm.sh script to install llvm-13
     ```
     > Install `llvm-13`. You need to get installation script from the website (also available in /docs directory).
 
     Update the `$HOME/.bashrc` and append this line. Then source the `bashrc` file.
 
-    ```
+    ```bash
     # Works with bash not sure if sh support this
     export CPATH=$CPATH:/usr/include/:/usr/include/x86_64-linux-gnu
     ```
 
     Next get the repository and build
 
-    ```
+    ```bash
     git clone https://fyro.ir/fshahinfar1/BMC
     cd BMC
     ./make
@@ -73,23 +97,9 @@ This instructions are for preparing the cloudlab environment.
 
 5. Get the servant
 
-    First enable huge pages on the machine. Edit `/etc/default/grub`.
+    Clone the repository and compile it.
 
-    ```
-    GRUB_CMDLINE_LINUX_DEFAULT="default_hugepagesz=1G hugepagesz=1G hugepages=16"
-    ```
-
-    then
-
-    ```
-    sudo update-grub
-    sudo reboot
-    ```
-
-    After rebooting the 1GB huge pages are available. Clone the repository and
-    compile it.
-
-    ```
+    ```bash
     git clone https://fyro.ir/fshahinfar1/Servant.git
     cd Servant/src
     make
@@ -103,9 +113,9 @@ This instructions are for preparing the cloudlab environment.
 
 7. Busypolling
 
-   Use following script to enable/disable busypolling configuration.
+    Use following script to enable/disable busypolling configuration.
 
-    ```
+    ```bash
     #! /bin/bash
 
     dev=enp24s0f1
@@ -137,20 +147,20 @@ For building the examples use `make` in their directory.
 
     Edit `/etc/default/grub` and update these variables
 
-    ```
+    ```bash
     GRUB_CMDLINE_LINUX_DEFAULT="default_hugepagesz=1G hugepagesz=1G hugepages=16"
     ```
 
     Then
 
-    ```
+    ```bash
     sudo update-grub
     sudo reboot
     ```
 
 2. Get DPDK
 
-    ```
+    ```bash
     sudo apt update
     sudo apt install meson ninja-build python3-pyelftools libpcap-dev
     git clone git://dpdk.org/dpdk
@@ -164,7 +174,7 @@ For building the examples use `make` in their directory.
 
 3. Get pktgen
 
-    ```
+    ```bash
     sudo apt install libnuma-dev
     git clone git://dpdk.org/apps/pktgen-dpdk
     cd pktgen-dpdk
@@ -181,7 +191,7 @@ For building the examples use `make` in their directory.
 
 5. Get DPDK `igb_uio` Kernel Module
 
-    ```
+    ```bash
     git clone git://dpdk.org/dpdk-kmods
     cd dpdk-kmods/linux/igb_uio/
     make
@@ -193,7 +203,7 @@ For building the examples use `make` in their directory.
 
     > Take note of interface MAC address before binding!
 
-    ```
+    ```bash
     #! /bin/bash
 
     INTERFACE=enp24s0f1
@@ -218,7 +228,7 @@ For building the examples use `make` in their directory.
 
 1. If the experiment tool does not provide throughput information:
 
-    ```
+    ```bash
     ./mmwatch 'ethtool -S enp24s0f1 | egrep ".*: [1-9][0-9]*$"'
     ```
 
@@ -230,7 +240,7 @@ For building the examples use `make` in their directory.
 
 > Old! pass load to then next script and it will do the job.
 
-    ```
+    ```bash
     #!/bin/bash
 
     ./mutilate/mutilate -s 192.168.1.1 --loadonly
@@ -240,7 +250,7 @@ For building the examples use `make` in their directory.
 
 > Script for running `mutilate` experiments
 
-    ```
+    ```bash
     #!/bin/bash
 
     ip=192.168.1.1
