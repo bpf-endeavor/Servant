@@ -19,3 +19,11 @@ servant: $(OBJS)
 
 clean:
 	rm -f $(OBJS) servant
+
+INCDIR = /usr/include/servant
+install:
+	@echo currently the binary is not installed
+	@echo only the header files are installed!
+	@echo "header install dir: $(INCDIR)"
+	sudo mkdir $(INCDIR)
+	sudo cp include/* $(INCDIR)
