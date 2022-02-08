@@ -5,7 +5,7 @@
 #include <elf.h>
 #include "brain.h"
 #include "log.h"
-/* #include "config.h" */
+#include "config.h"
 #include "map.h"
 
 static uint64_t
@@ -23,6 +23,13 @@ uint64_t readTSC() {
     return tsc;
 }
 
+static inline void
+_memmove(void *d, void *s, uint32_t n)
+{
+	memmove(d, s, n);
+}
+
+
 
 /**
  * Register the supported functions in the virtual machine
@@ -35,8 +42,9 @@ register_engine_functions(struct ubpf_vm *vm)
 	ubpf_register(vm, 3, "ubpf_map_elem_release", ubpf_map_elem_release);
 	ubpf_register(vm, 4, "printf", printf);
 	ubpf_register(vm, 5, "rdtsc", readTSC);
-	ubpf_register(vm, 6, "unwind", unwind);
-	ubpf_set_unwind_function_index(vm, 6);
+	ubpf_register(vm, 6, "ubpf_memmove", _memmove);
+	ubpf_register(vm, 7, "unwind", unwind);
+	ubpf_set_unwind_function_index(vm, 7);
 }
 
 /**
@@ -124,23 +132,23 @@ setup_ubpf_engine(char *program_path, struct ubpf_vm **_vm)
 	 * This part of code dumps the jitted code
 	 * it is used for debugging ubpf interpretter
 	 */
-	/* if (config.jitted) { */
-	/* 	ubpf_jit_fn fn = ubpf_compile(vm, &errmsg); */
-	/* 	if (fn == NULL) { */
-	/* 		ERROR("Failed to compile: %s\n", errmsg); */
-	/* 		free(errmsg); */
-	/* 		return 1; */
-	/* 	} */
-	/* 	/1* dump the jitted program *1/ */
-	/* 	unsigned int size = 0; */
-	/* 	uint8_t *b = ubpf_dump_jitted_fn(vm, &size); */
-	/* 	for (int i = 0; i < size; i++) { */
-	/* 		if (i % 16 == 0) */
-	/* 			printf("\n"); */
-	/* 		printf("%.2x ", b[i]); */
-	/* 	} */
-	/* 	printf("\n"); */
-	/* } */
+	if (config.jitted) {
+		ubpf_jit_fn fn = ubpf_compile(vm, &errmsg);
+		if (fn == NULL) {
+			ERROR("Failed to compile: %s\n", errmsg);
+			free(errmsg);
+			return 1;
+		}
+		/* dump the jitted program */
+		unsigned int size = 0;
+		uint8_t *b = ubpf_dump_jitted_fn(vm, &size);
+		for (int i = 0; i < size; i++) {
+			if (i % 16 == 0)
+				printf("\n");
+			printf("%.2x ", b[i]);
+		}
+		printf("\n");
+	}
 	return 0;
 }
 

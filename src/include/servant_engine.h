@@ -43,6 +43,7 @@ static void *(*lookup)(char *name, const void *key) = (void *)1;
 static int (*free_elem)(void *ptr) = (void *)3;
 static void (*ubpf_print)(char *fmt, ...) = (void *)4;
 static unsigned long int (*ubpf_rdtsc)(void) = (void *)5;
+static void (*ubpf_memmove)(void *d, void *s, uint32_t n) = (void *)6;
 
 // This macro helps with printing things from uBPF
 #define DUMP(x, args...) { char fmt[] = x; ubpf_print((char *)fmt, ##args); } 

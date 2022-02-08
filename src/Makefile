@@ -25,5 +25,5 @@ install:
 	@echo currently the binary is not installed
 	@echo only the header files are installed!
 	@echo "header install dir: $(INCDIR)"
-	sudo mkdir $(INCDIR)
+	sudo mkdir -p $(INCDIR)
 	sudo cp include/* $(INCDIR)

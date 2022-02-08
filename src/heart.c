@@ -236,6 +236,7 @@ void
 pump_packets(struct xsk_socket_info *xsk, struct ubpf_vm *vm)
 {
 	/* static uint64_t pkt_count = 0; */
+	/* static uint64_t sent_count = 0; */
 	/* struct timespec spec = {}; */
 	/* clock_gettime(CLOCK_REALTIME, &spec); */
 	/* uint64_t rprt_ts = spec.tv_sec * 1000000 + spec.tv_nsec / 1000; */
@@ -290,12 +291,16 @@ pump_packets(struct xsk_socket_info *xsk, struct ubpf_vm *vm)
 			apply_action(xsk, batch[i], ret);
 
 			/* pkt_count++; */
+			/* if (ret == SEND) */
+			/* 	sent_count++; */
 			/* clock_gettime(CLOCK_REALTIME, &spec); */
 			/* uint64_t now = spec.tv_sec * 1000000 + spec.tv_nsec / 1000; */
 			/* uint64_t delta = now - rprt_ts; */
 			/* if (delta > 500000) { */
-			/* 	INFO("TP: %d\n", pkt_count * 1000000 / delta); */
+			/* 	INFO("TP: %d send: %d\n", pkt_count * 1000000 / */
+			/* 			delta, sent_count); */
 			/* 	pkt_count = 0; */
+			/* 	sent_count = 0; */
 			/* 	rprt_ts = now; */
 			/* } */
 		}
