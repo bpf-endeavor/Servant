@@ -171,7 +171,7 @@ _get_map_fd_and_idx(char *map_name, int *idx)
 }
 
 void *
-ubpf_map_lookup_elem(char *map_name, const void *key_ptr)
+ubpf_map_lookup_elem_kern(char *map_name, const void *key_ptr)
 {
 	int idx;
 	int fd = _get_map_fd_and_idx(map_name, &idx);
@@ -206,7 +206,7 @@ ubpf_map_elem_release(void *ptr)
 }
 
 int
-ubpf_map_update_elem(char *map_name, const void *key_ptr, void *value, int flag)
+ubpf_map_update_elem_kern(char *map_name, const void *key_ptr, void *value, int flag)
 {
 	int fd = _get_map_fd(map_name);
 	if (!fd)

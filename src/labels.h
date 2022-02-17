@@ -3,4 +3,5 @@
 #define UNUSED __attribute__((unused))
 #define OUT
 #define IN
+#define DEPRECATED
 #endif

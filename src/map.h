@@ -23,10 +23,7 @@ extern void *map_value_pool[MAX_NR_MAPS];
  * @param key_ptr A pointer to the key object (same as XDP program).
  * @return Returns pointer to the value. In case of failure returns NULL.
  */
-void *ubpf_map_lookup_elem(char *map_name, const void *key_ptr);
-
-/* int ubpf_map_lookup_elem(char *map_name, const void *key_ptr, */
-/* 		OUT void *buffer); */
+void *ubpf_map_lookup_elem_kern(char *map_name, const void *key_ptr);
 
 /**
  * Free the memory allocated for map lookup result.
@@ -42,9 +39,8 @@ void ubpf_map_elem_release(void *ptr);
  * @param flag Flags used for update operation.
  * @return Returns zero on success
  */
-int ubpf_map_update_elem(char *map_name, const void *key_ptr, void *value,
+int ubpf_map_update_elem_kern(char *map_name, const void *key_ptr, void *value,
 		int flag);
-
 
 /**
  * Setup map system by looking for the maps having the name given as argument.
@@ -64,6 +60,6 @@ int setup_map_system(char *names[], int size);
  * @param ifindex Intreface index
  * @return Returns zero on success.
  */
-int setup_map_system_from_if_xdp(int ifindex);
+DEPRECATED int setup_map_system_from_if_xdp(int ifindex);
 
 #endif

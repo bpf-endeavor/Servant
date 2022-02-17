@@ -29,7 +29,48 @@ _memmove(void *d, void *s, uint32_t n)
 	memmove(d, s, n);
 }
 
+/**
+ * Lookup an element in userspace map
+ *
+ * (From Oko project)
+ */
+void *
+ubpf_map_lookup_elem_userspace(const struct ubpf_map *map, void *key)
+{
+	if (!map) {
+		return NULL;
+	}
+	if (!map->ops.map_lookup) {
+		return NULL;
+	}
+	if (!key) {
+		return NULL;
+	}
+	return map->ops.map_lookup(map, key);
+}
 
+/**
+ * Update an element in userspace map
+ *
+ * (From Oko project)
+ */
+int
+ubpf_map_update_elem_userspace(struct ubpf_map *map, const void *key, void *item)
+{
+	if (!map) {
+		return -1;
+	}
+	if (!map->ops.map_update) {
+		return -2;
+	}
+	if (!key) {
+		return -3;
+	}
+	if (!item) {
+		return -4;
+	}
+	return map->ops.map_update(map, key, item);
+}
 
 /**
  * Register the supported functions in the virtual machine
@@ -37,14 +78,22 @@ _memmove(void *d, void *s, uint32_t n)
 static void
 register_engine_functions(struct ubpf_vm *vm)
 {
-	ubpf_register(vm, 1, "ubpf_map_lookup_elem", ubpf_map_lookup_elem);
-	ubpf_register(vm, 2, "ubpf_map_update_elem", ubpf_map_update_elem);
+	/* Access Kernel maps */
+	ubpf_register(vm, 1, "ubpf_map_lookup_elem_kern", ubpf_map_lookup_elem_kern);
+	ubpf_register(vm, 2, "ubpf_map_update_elem_kern", ubpf_map_update_elem_kern);
 	ubpf_register(vm, 3, "ubpf_map_elem_release", ubpf_map_elem_release);
+	/* printf for debugging */
 	ubpf_register(vm, 4, "printf", printf);
+	/* get the CPU timestamp counter */
 	ubpf_register(vm, 5, "rdtsc", readTSC);
+	/* memmove */
 	ubpf_register(vm, 6, "ubpf_memmove", _memmove);
-	ubpf_register(vm, 7, "unwind", unwind);
-	ubpf_set_unwind_function_index(vm, 7);
+	/* Userspace maps */
+	ubpf_register(vm, 7, "ubpf_map_lookup_elem_userspace", ubpf_map_lookup_elem_userspace);
+	ubpf_register(vm, 8, "ubpf_map_update_elem_userspace", ubpf_map_update_elem_userspace);
+	/* unwind */
+	ubpf_register(vm, 9, "unwind", unwind);
+	ubpf_set_unwind_function_index(vm, 9);
 }
 
 /**

@@ -41,9 +41,15 @@ typedef char              int8_t;
 // Map access functions
 static void *(*lookup)(char *name, const void *key) = (void *)1;
 static int (*free_elem)(void *ptr) = (void *)3;
+/* For debugging */
 static void (*ubpf_print)(char *fmt, ...) = (void *)4;
+/* For reading timestamp CPU */
 static unsigned long int (*ubpf_rdtsc)(void) = (void *)5;
+/* memmove */
 static void (*ubpf_memmove)(void *d, void *s, uint32_t n) = (void *)6;
+/* Userspace Maps */
+static void *(*userspace_lookup)(const void *, const void *) = (void *)7;
+static int (*userspace_update)(void *, const void *, void *) = (void *)8;
 
 // This macro helps with printing things from uBPF
 #define DUMP(x, args...) { char fmt[] = x; ubpf_print((char *)fmt, ##args); } 

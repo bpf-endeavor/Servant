@@ -10,9 +10,9 @@ This instructions are for preparing the cloudlab environment.
     cd /proj/progstack-PG0/farbod/ubuntu
     sudo dpkg -i *.deb
     ```
-    
+
     > The packages for installing the kernel is available at ebpf-bench repo.
-    
+
     Also enable huge pages. Edit `/etc/default/grub`.
 
     ```bash
@@ -27,9 +27,9 @@ This instructions are for preparing the cloudlab environment.
     ```
 
     After rebooting the 1GB huge pages are available and the kerne should be 5.13.
-    
+
     ```bash
-    uname -a 
+    uname -a
     # Linux hostname 5.13.0-custom-ebpf-rdtsc #6 SMP Mon Sep 27 15:45:14 BST 2021 x86_64 x86_64 x86_64 GNU/Linux
     ```
 
@@ -41,7 +41,7 @@ This instructions are for preparing the cloudlab environment.
     make
     sudo make install
     ```
-    
+
     After these steps `libubpf` will be installed to the system.
     Other projects can link to it using `-lbpf` flag.
 
@@ -50,7 +50,7 @@ This instructions are for preparing the cloudlab environment.
     ```bash
     # Some dependencies you might need
     sudo apt update
-    sudo apt install -y libz-dev libelf-dev
+    sudo apt install -y libz-dev libelf-dev pkg-config
     # Getting and compiling the libbpf
     git clone https://github.com/libbpf/libbpf
     cd libbpf
@@ -65,6 +65,8 @@ This instructions are for preparing the cloudlab environment.
     echo `whereis libbpf` | awk '{print $2}' | xargs dirname | sudo tee /etc/ld.so.conf.d/libbpf.conf
     sudo ldconfig
     ```
+
+    > For some reason building libbpf without pkt-config being installed cause some problems
 
 4. Get Modified BMC repository
 

@@ -1,7 +1,7 @@
 #ifndef BRAIN_H
 #define BRAIN_H
 
-#include "ubpf.h"
+#include <ubpf.h>
 
 // Maximum number of bytes a program file can have
 #define MAX_CODE_SIZE 1024 * 1024 // 1 MB
