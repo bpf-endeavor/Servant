@@ -1,12 +1,19 @@
-# Why Use Servant?
+# Why Automatic Spilitting of eBPF Applications??
 
 ## Running eBPF in Kernel is Limited!
 
 
 ## Splitting Can Increase performance (or not all tasks should be done in kernel)
 
+*. Results for BMC
+*. Results for Katran
 
-## Doing Overcoming The eBPF Verifier Limits Is Challenging
+### Not all splitting is good
+
+*. Bad results for bad splitting
+
+
+## Overcoming The eBPF Verifier Limits Is Challenging
 
 * Needs Time
 * Needs Expertise
