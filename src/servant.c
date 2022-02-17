@@ -84,7 +84,8 @@ int main(int argc, char *argv[])
 		INFO("UTH has not implemented yet\n");
 	}
 
-	setup_interpose_link();
+	if (config.use_packet_injection)
+		setup_interpose_link();
 
 	// Add interrupt handler
 	signal(SIGINT,  int_exit);

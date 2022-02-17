@@ -35,6 +35,8 @@ struct config {
     // Userspace Tx Hook
     int has_uth;
     char *uth_prog_path;
+    // Userspace packet injection (Interpose link)
+    int use_packet_injection;
     // Dummy
     int args[1]; // it is weired
     uint32_t tmp;

@@ -22,7 +22,7 @@ void usage(char *prog_name)
             "Options:\n"
             "\t num-frames, frame-size, batch-size,rx-size, tx-size,\n"
             "\t copy-mode, skb-mode, xdp-prog, no-jit [disabled], uth,\n"
-            "\t busypoll\n"
+            "\t busypoll, packet-injection\n"
             );
     printf(desc, prog_name);
 }
@@ -46,6 +46,11 @@ void parse_args(int argc, char *argv[])
     /* Set when using custom XDP program */
     config.custom_kern_prog = 0;
     config.custom_kern_path = NULL;
+    /* Servant userspace features config */
+    config.has_uth = 0;
+    config.uth_prog_path = NULL;
+    config.use_packet_injection = 0;
+
 
     enum opts {
         HELP = 100,
@@ -60,6 +65,7 @@ void parse_args(int argc, char *argv[])
         NO_JIT,
         UTH,
         BUSY_POLLING,
+        PACKET_INJECTION
     };
     struct option long_opts[] = {
         {"help", no_argument, NULL, HELP},
@@ -74,6 +80,7 @@ void parse_args(int argc, char *argv[])
         {"no-jit", no_argument, NULL, NO_JIT},
         {"uth", required_argument, NULL, UTH},
         {"busypoll", no_argument, NULL, BUSY_POLLING},
+        {"packet-injection", no_argument, NULL, PACKET_INJECTION},
     };
     int ret;
     char optstring[] = "";
@@ -122,6 +129,9 @@ void parse_args(int argc, char *argv[])
             case HELP:
                 usage(argv[0]);
                 exit(0);
+            case PACKET_INJECTION:
+                config.use_packet_injection = 1;
+                break;
             default:
                 usage(argv[0]);
                 ERROR("Unknown: argument!\n");
