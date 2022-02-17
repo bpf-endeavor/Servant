@@ -30,21 +30,29 @@ struct bpf_map_def test_map = {
 static inline __attribute__((always_inline)) void __initialize(void);
 
 int bpf_prog(void *pkt) {
-	static int __flag = 0;
-	if (!__flag) {
-		__flag = 1;
+	// TODO: enable runtime to have a way of initializing the maps
+	// probably using a RPC framework like Katran.
+	/* static int __flag = 0; */
+	/* if (!__flag) */
+	{
+		/* __flag = 1; */
 		__initialize();
 	}
 
+	DUMP("A packet received\n");
 	const int key = KEY;
 	int * val = userspace_lookup(&test_map, &key);
-	if (*val == VAL)
-		return 1;
-	return 0;
+	if (val != NULL && *val == VAL) {
+		DUMP("Test passed\n");
+		return DROP;
+	}
+	DUMP("Test failed\n");
+	return DROP;
 }
 
 static inline __attribute__((always_inline)) void __initialize(void)
 {
+	DUMP("Initializing\n");
 	const int key = KEY;
 	long long int value = VAL;
 	userspace_update(&test_map, &key, &value);
