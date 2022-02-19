@@ -29,47 +29,16 @@ _memmove(void *d, void *s, uint32_t n)
 	memmove(d, s, n);
 }
 
-/**
- * Lookup an element in userspace map
- *
- * (From Oko project)
- */
-void *
-ubpf_map_lookup_elem_userspace(const struct ubpf_map *map, void *key)
+static inline void * __attribute__((always_inline))
+_ubpf_lookup_map(struct ubpf_map *m, void *k)
 {
-	if (!map) {
-		return NULL;
-	}
-	if (!map->ops.map_lookup) {
-		return NULL;
-	}
-	if (!key) {
-		return NULL;
-	}
-	return map->ops.map_lookup(map, key);
+	return ubpf_lookup_map(m, k);
 }
 
-/**
- * Update an element in userspace map
- *
- * (From Oko project)
- */
-int
-ubpf_map_update_elem_userspace(struct ubpf_map *map, const void *key, void *item)
+static inline int __attribute__((always_inline))
+_ubpf_update_map(struct ubpf_map *m, void *k, void *v)
 {
-	if (!map) {
-		return -1;
-	}
-	if (!map->ops.map_update) {
-		return -2;
-	}
-	if (!key) {
-		return -3;
-	}
-	if (!item) {
-		return -4;
-	}
-	return map->ops.map_update(map, key, item);
+	return ubpf_update_map(m, k, v);
 }
 
 /**
@@ -88,9 +57,9 @@ register_engine_functions(struct ubpf_vm *vm)
 	ubpf_register(vm, 5, "rdtsc", readTSC);
 	/* memmove */
 	ubpf_register(vm, 6, "ubpf_memmove", _memmove);
-	/* Userspace maps */
-	ubpf_register(vm, 7, "ubpf_map_lookup_elem_userspace", ubpf_map_lookup_elem_userspace);
-	ubpf_register(vm, 8, "ubpf_map_update_elem_userspace", ubpf_map_update_elem_userspace);
+	/* Userspace maps (From uBPF library) */
+	ubpf_register(vm, 7, "ubpf_map_lookup_elem_userspace", _ubpf_lookup_map);
+	ubpf_register(vm, 8, "ubpf_map_update_elem_userspace", _ubpf_update_map);
 	/* unwind */
 	ubpf_register(vm, 9, "unwind", unwind);
 	ubpf_set_unwind_function_index(vm, 9);

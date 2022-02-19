@@ -60,4 +60,5 @@ static int (*userspace_update)(void *, const void *, void *) = (void *)8;
 
 
 #include "packet_context.h"
+#include <ubpf_maps.h>
 #endif

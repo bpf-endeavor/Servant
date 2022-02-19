@@ -15,7 +15,7 @@
 #include <bpf/bpf.h>
 
 
-#include <pthread.h>
+/* #include <pthread.h> */
 
 #include "sockets.h"
 #include "map.h"
@@ -25,6 +25,7 @@
 #include "heart.h"
 #include "brain.h"
 #include "interpose_link.h"
+#include "userspace_maps.h"
 
 
 static void int_exit() {
@@ -100,16 +101,27 @@ int main(int argc, char *argv[])
 	struct ubpf_vm *vm;
 	ret = setup_ubpf_engine(config.ebpf_program_path, &vm);
 	if (ret) {
-		goto teardown;
+		goto teardown2;
 	}
+
+	/* Launch command server */
+	struct server_conf sconf  = {
+		.running = 1,
+		.vm = vm,
+	};
+	launch_userspace_maps_server(&sconf);
+
 
 	// Poll the socket and send receive packets to eBPF engine
 	pump_packets(xsk, vm);
 
 	// Clean up
 	/* pthread_join(report_thread, NULL); */
-	teardown_interpose_link();
+	sconf.running = 0;
 	ubpf_destroy(vm);
+teardown2:
+	if (config.use_packet_injection)
+		teardown_interpose_link();
 teardown:
 	if (config.custom_kern_prog && config.custom_kern_path[0] != '-') {
 		// Remove XDP program
