@@ -30,10 +30,14 @@ typedef char              int8_t;
 		__BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
 #define ubpf_ntohs(x)		__builtin_bswap16(x)
 #define ubpf_htons(x)		__builtin_bswap16(x)
+#define ubpf_htonl(x)		__builtin_bswap32(x)
+#define bpf_ntohl(x)		__builtin_bswap32(x)
 #elif defined(__BYTE_ORDER__) && defined(__ORDER_BIG_ENDIAN__) && \
 		__BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
 #define ubpf_ntohs(x)		(x)
 #define ubpf_htons(x)		(x)
+#define ubpf_nthol(x)		(x)
+#define ubpf_htonl(x)		(x)
 #else
 # error "Endianness detection needs to be set up for your compiler?!"
 #endif

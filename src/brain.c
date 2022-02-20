@@ -158,14 +158,14 @@ setup_ubpf_engine(char *program_path, struct ubpf_vm **_vm)
 			return 1;
 		}
 		/* dump the jitted program */
-		unsigned int size = 0;
-		uint8_t *b = ubpf_dump_jitted_fn(vm, &size);
-		for (int i = 0; i < size; i++) {
-			if (i % 16 == 0)
-				printf("\n");
-			printf("%.2x ", b[i]);
-		}
-		printf("\n");
+		/* unsigned int size = 0; */
+		/* uint8_t *b = ubpf_dump_jitted_fn(vm, &size); */
+		/* for (int i = 0; i < size; i++) { */
+		/* 	if (i % 16 == 0) */
+		/* 		printf("\n"); */
+		/* 	printf("%.2x ", b[i]); */
+		/* } */
+		/* printf("\n"); */
 	}
 	return 0;
 }
