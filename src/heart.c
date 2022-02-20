@@ -14,6 +14,8 @@
 
 #include <time.h>
 
+#define SHOW_THROUGHPUT
+
 /* #include "duration_hist.h" */
 
 /* # include <x86intrin.h> */
@@ -235,11 +237,13 @@ apply_action(struct xsk_socket_info *xsk, struct xdp_desc *desc, int action)
 void
 pump_packets(struct xsk_socket_info *xsk, struct ubpf_vm *vm)
 {
-	/* static uint64_t pkt_count = 0; */
-	/* static uint64_t sent_count = 0; */
-	/* struct timespec spec = {}; */
-	/* clock_gettime(CLOCK_REALTIME, &spec); */
-	/* uint64_t rprt_ts = spec.tv_sec * 1000000 + spec.tv_nsec / 1000; */
+#ifdef SHOW_THROUGHPUT
+	static uint64_t pkt_count = 0;
+	static uint64_t sent_count = 0;
+	struct timespec spec = {};
+	clock_gettime(CLOCK_REALTIME, &spec);
+	uint64_t rprt_ts = spec.tv_sec * 1000000 + spec.tv_nsec / 1000;
+#endif
 
 	uint32_t rx;
 	const uint32_t cnt = config.batch_size;
@@ -290,19 +294,21 @@ pump_packets(struct xsk_socket_info *xsk, struct ubpf_vm *vm)
 			batch[i]->addr += pktctx.trim_head;
 			apply_action(xsk, batch[i], ret);
 
-			/* pkt_count++; */
-			/* if (ret == SEND) */
-			/* 	sent_count++; */
-			/* clock_gettime(CLOCK_REALTIME, &spec); */
-			/* uint64_t now = spec.tv_sec * 1000000 + spec.tv_nsec / 1000; */
-			/* uint64_t delta = now - rprt_ts; */
-			/* if (delta > 500000) { */
-			/* 	INFO("TP: %d send: %d\n", pkt_count * 1000000 / */
-			/* 			delta, sent_count); */
-			/* 	pkt_count = 0; */
-			/* 	sent_count = 0; */
-			/* 	rprt_ts = now; */
-			/* } */
+#ifdef SHOW_THROUGHPUT
+			pkt_count++;
+			if (ret == SEND)
+				sent_count++;
+			clock_gettime(CLOCK_REALTIME, &spec);
+			uint64_t now = spec.tv_sec * 1000000 + spec.tv_nsec / 1000;
+			uint64_t delta = now - rprt_ts;
+			if (delta > 500000) {
+				INFO("TP: %d send: %d\n", pkt_count * 1000000 /
+						delta, sent_count);
+				pkt_count = 0;
+				sent_count = 0;
+				rprt_ts = now;
+			}
+#endif
 		}
 	}
 	/* print_latency_result(); */
