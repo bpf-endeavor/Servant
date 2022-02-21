@@ -3,6 +3,8 @@
 #include <errno.h>
 #include <string.h>
 #include <elf.h>
+#include <time.h>
+
 #include "brain.h"
 #include "log.h"
 #include "config.h"
@@ -41,6 +43,14 @@ _ubpf_update_map(struct ubpf_map *m, void *k, void *v)
 	return ubpf_update_map(m, k, v);
 }
 
+static inline uint64_t __attribute__((always_inline))
+ubpf_time_get_ns(void)
+{
+	struct timespec spec = {};
+	clock_gettime(CLOCK_REALTIME, &spec);
+	return (uint64_t)(spec.tv_sec) * (uint64_t)1000000000 + (uint64_t)(spec.tv_nsec);
+}
+
 /**
  * Register the supported functions in the virtual machine
  */
@@ -60,9 +70,11 @@ register_engine_functions(struct ubpf_vm *vm)
 	/* Userspace maps (From uBPF library) */
 	ubpf_register(vm, 7, "ubpf_map_lookup_elem_userspace", _ubpf_lookup_map);
 	ubpf_register(vm, 8, "ubpf_map_update_elem_userspace", _ubpf_update_map);
+	/* get time in ns */
+	ubpf_register(vm, 9, "ubpf_time_get_ns", ubpf_time_get_ns);
 	/* unwind */
-	ubpf_register(vm, 9, "unwind", unwind);
-	ubpf_set_unwind_function_index(vm, 9);
+	ubpf_register(vm, 10, "unwind", unwind);
+	ubpf_set_unwind_function_index(vm, 10);
 }
 
 /**

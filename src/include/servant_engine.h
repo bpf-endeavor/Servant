@@ -54,6 +54,8 @@ static void (*ubpf_memmove)(void *d, void *s, uint32_t n) = (void *)6;
 /* Userspace Maps */
 static void *(*userspace_lookup)(const void *, const void *) = (void *)7;
 static int (*userspace_update)(void *, const void *, void *) = (void *)8;
+/* Get time in nanosecond */
+static uint64_t (*ubpf_time_get_ns)(void) = (void *)9;
 
 // This macro helps with printing things from uBPF
 #define DUMP(x, args...) { char fmt[] = x; ubpf_print((char *)fmt, ##args); } 
