@@ -58,6 +58,18 @@ static int (*userspace_update)(void *, const void *, void *) = (void *)8;
 // This macro helps with printing things from uBPF
 #define DUMP(x, args...) { char fmt[] = x; ubpf_print((char *)fmt, ##args); } 
 
+#define DUMP_PKT_HEX(xdp) { \
+	char fmt1[] = "%02x "; \
+	char fmt2[] = "\n"; \
+	uint8_t *c  = xdp->data; \
+	for (int i = 0; i < xdp->pkt_len; i++) { \
+		ubpf_print((char *)fmt1, c[i]); \
+		if ((i + 1) % 16 == 0) { \
+			ubpf_print((char *)fmt2); \
+		} \
+	} \
+	ubpf_print((char *)fmt2); }
+
 #ifndef NULL
 #define NULL 0
 #endif

@@ -14,7 +14,7 @@
 
 #include <time.h>
 
-#define SHOW_THROUGHPUT
+// #define SHOW_THROUGHPUT
 
 /* #include "duration_hist.h" */
 
@@ -303,7 +303,8 @@ pump_packets(struct xsk_socket_info *xsk, struct ubpf_vm *vm)
 			uint64_t delta = now - rprt_ts;
 			if (delta > 500000) {
 				INFO("TP: %d send: %d\n", pkt_count * 1000000 /
-						delta, sent_count);
+						delta, sent_count * 1000000 /
+						delta);
 				pkt_count = 0;
 				sent_count = 0;
 				rprt_ts = now;
