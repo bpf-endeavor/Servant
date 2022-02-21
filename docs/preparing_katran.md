@@ -2,7 +2,12 @@
 
 Installing Katran and preparing the environment for experiments.
 
-> Assuming the Servant has been installed (consult with servant_testbed_preparation.md).
+> This doc Assumes the Servant has been installed (consult with `servant_testbed_preparation.md`).
+
+**About the different version of Katran in experiments:**
+
+The head of the `main` branch is the modified bersion of the Katran that works with Servant.
+For running the Original Katran checkout to `katran_only` tag.
 
 # Installing Katran
 
@@ -31,11 +36,15 @@ cd katran/notes
 ./go_deps.sh
 cd ../
 ./build_katran.sh
+cd example_grpc/
+./build_grpc_client.sh
 ```
 
 ## Installing dependencies
 
 > The script below is available at `katran/notes/go_deps.sh`
+
+> Make sure that after installing the version of `Go` is 1.17.+
 
 Install `Go`, `protoc`, and needed `Go` modules
 
@@ -68,6 +77,7 @@ go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.26
 go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.1
 go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
 go get -u google.golang.org/grpc
+go get -u github.com/golang/protobuf/protoc-gen-go
 echo 'export PATH="$PATH:$(go env GOPATH)/bin"' | sudo tee -a $HOME/.profile
 source $HOME/.profile
 ```
@@ -204,6 +214,27 @@ sudo taskset -c 0 ./servant --xdp-prog - --busypoll enp24s0f1 0 /media/disk/my/k
 * Run load generator on the other machine.
 
 
+# Running Userspace Katran
+
+**Note:** Make sure to `make && sudo make install` the Servant repository
+
+```bash
+git clone https://fshahinfar1@fyro.ir/fshahinfar1/katran_userspace
+cd katran_userspace/
+make
+```
+
+Then run it with Servant:
+
+* Enable bussypolling by running the configuration script.
+
+```bash
+sudo taskset -c 0 ./servant --busypoll enp24s0f1 0 /users/farbod/katran_userspace/balancer_kern.o
+```
+
+> At the time of writing this description, the Katran configuration is hardcoded in Servant startup path. It may change in future.
+
+
 # Load generator
 
 I used dpdk pktgen. Look servant notes on how to install it.
@@ -217,23 +248,28 @@ sudo pktgen -l 0,2,4,6 -n 4 -a 18:00.1 --file-prefix pg -- -m "[2:4].0" -T -P
 configuring pktgen
 
 ```
-set 0 size 1500
+set 0 size 64
 set 0 burst 32
 set 0 sport 8080
 set 0 dport 8080
-set 0 src mac 3c:fd:fe:55:df:62
-set 0 dst mac 3c:fd:fe:55:e1:62
+set 0 src mac <src mac>
+set 0 dst mac <dst mac>
 set 0 type ipv4
 set 0 proto udp
 set 0 src ip 192.168.1.1/32
 set 0 dst ip 192.168.1.10
 ```
 
+* `192.168.1.1` is the source ip of the machine
+* `192.168.1.10` is the virtual ip. `8080` is the virtual port.
+
 configure the rate
 
 ```
-set 0 rate 100
+set 0 rate 40
 ```
+
+> In my setup 40% is enough to stress Katran.
 
 run
 
