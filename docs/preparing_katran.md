@@ -234,6 +234,12 @@ sudo taskset -c 0 ./servant --busypoll enp24s0f1 0 /users/farbod/katran_userspac
 
 > At the time of writing this description, the Katran configuration is hardcoded in Servant startup path. It may change in future.
 
+**Note**:
+Since currently the Katran config is hardcoded in Servant, for running the
+experiment, the mac address of the default gateway or the other machine
+should be set in the `userspace_maps.c` file in Servant project and
+it should be recompiled.
+
 
 # Load generator
 
