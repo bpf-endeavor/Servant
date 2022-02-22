@@ -284,3 +284,11 @@ start 0
 stop 0
 ```
 
+# Batch size effect experiment
+
+I did an experiment evaluating the effect of different batch sizes on throughput
+of userspace karan. The command is as below.
+
+```bash
+sudo taskset -c 0 ./servant --busypoll --rx-size 4096 --tx-size 4096 --batch-size <n> enp24s0f1 0 /users/farbod/katran_userspace/balancer_kern.o
+```
