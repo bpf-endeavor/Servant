@@ -7,6 +7,8 @@
 #include <netinet/in.h>
 #include <pthread.h>
 
+#include <ubpf_maps.h>
+
 #include "log.h"
 #include "userspace_maps.h"
 
@@ -134,6 +136,29 @@ struct ctl_value {
   };
 };
 
+// flow metadata
+struct flow_key {
+  union {
+    uint32_t src;
+    uint32_t srcv6[4];
+  };
+  union {
+    uint32_t dst;
+    uint32_t dstv6[4];
+  };
+  union {
+    uint32_t ports;
+    uint16_t port16[2];
+  };
+  uint8_t proto;
+};
+
+// where to send client's packet from LRU_MAP
+struct real_pos_lru {
+  uint32_t pos;
+  uint64_t atime;
+};
+
 int launch_userspace_maps_server(struct server_conf *config)
 {
 	/* pthread_t t; */
@@ -222,6 +247,30 @@ int launch_userspace_maps_server(struct server_conf *config)
 	};
 	ubpf_update_map(m, &ctl_array_index, &ctl_val);
 	INFO("Updated default mac address\n");
+
+	/* Configure LRU mapping */
+	/* I am using Hash map instead of LRU_HASH */
+	m = ubpf_select_map("lru_mapping", config->vm);
+	if (!m) {
+		INFO("Warning: lru_mapping map not found!\n");
+		return 1;
+	}
+	int count_cores = 1;
+	struct ubpf_map_def map_def = {
+		.type = UBPF_MAP_TYPE_HASHMAP, // not LRU?
+		.key_size = sizeof(struct flow_key),
+		.value_size = sizeof(struct real_pos_lru),
+		.max_entries = 10000,
+		.nb_hash_functions = 0,
+	};
+	for (int c = 0; c < count_cores; c++) {
+		// TODO: create a new map need uBPF api
+		char name[9];
+		snprintf(name, 8, "lru%d", c);
+		void *new_map = ubpf_create_map(name, &map_def, config->vm);
+		ubpf_update_map(m, &c, &new_map);
+		INFO("Add a Hash map for core %d\n", c);
+	}
 
 	return 0;
 }
