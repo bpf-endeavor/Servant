@@ -63,8 +63,12 @@ int main(int argc, char *argv[])
 		"data_map",
 		/* For Katran */
 		"ctl_array",
+		"reals",
+		"server_id_",
+		"stats",
+		"ch_rings",
 	};
-	const int count_map_names = 6;
+	const int count_map_names = 10;
 	ret = setup_map_system(map_names, count_map_names);
 	if (ret)
 		goto teardown;

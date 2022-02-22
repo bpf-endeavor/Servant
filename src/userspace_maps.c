@@ -178,98 +178,98 @@ int launch_userspace_maps_server(struct server_conf *config)
 	}
 
 	/* for Katran */
-	/* Initialize stats */
-	m = ubpf_select_map("stats", config->vm);
-	if (!m) {
-		INFO("Warning: stats map not found!\n");
-		return 1;
-	}
-	p = ubpf_lookup_map(m, &zero);
-	INFO("stats[0] %p\n", p);
-
-	/* Add a new vip */
-	m = ubpf_select_map("vip_map", config->vm);
-	if (!m) {
-		INFO("Warning: vip_map map not found!\n");
-		return 1;
-	}
-	struct vip_definition vdef = {};
-	vdef.vip = htonl(0xc0a8010a); // 192.168.1.10
-	vdef.port = htons(8080);
-	vdef.proto = IPPROTO_UDP;
 	const int vip_num = 0;
-	/* const int flags = 1; // NO_SPORT (reading from grpc client) */
-	const int flags = 0; // TODO: what should it be?
-	struct vip_meta meta;
-	meta.vip_num = vip_num;
-	meta.flags = flags;
-	ubpf_update_map(m, &vdef, &meta);
-	INFO("Add vip %x %d %d\n", vdef.vip, vdef.port, vdef.proto);
-	/* void *p = ubpf_lookup_map(m, &vdef); */
-	/* INFO("looking up the new pointer %p\n", p); */
-
-	/* Add a new real */
-	m = ubpf_select_map("reals", config->vm);
-	if (!m) {
-		INFO("Warning: reals map not found!\n");
-		return 1;
-	}
 	struct real_definition real = {
 		.dst = htonl(0xc0a80101), // 192.168.1.1
 		.flags = 0, // TODO: what should it be?
 	};
-	int real_num = 0;
-	ubpf_update_map(m, &real_num, &real);
-	INFO("Add a real 192.168.1.1\n");
+	/* Initialize stats */
+	m = ubpf_select_map("stats", config->vm);
+	if (m) {
+		p = ubpf_lookup_map(m, &zero);
+		INFO("stats[0] %p\n", p);
+	} else {
+		INFO("Warning: stats map not found!\n");
+	}
+
+	/* Add a new vip */
+	m = ubpf_select_map("vip_map", config->vm);
+	if (m) {
+		struct vip_definition vdef = {};
+		vdef.vip = htonl(0xc0a8010a); // 192.168.1.10
+		vdef.port = htons(8080);
+		vdef.proto = IPPROTO_UDP;
+		/* const int flags = 1; // NO_SPORT (reading from grpc client) */
+		const int flags = 0; // TODO: what should it be?
+		struct vip_meta meta;
+		meta.vip_num = vip_num;
+		meta.flags = flags;
+		ubpf_update_map(m, &vdef, &meta);
+		INFO("Add vip %x %d %d\n", vdef.vip, vdef.port, vdef.proto);
+		/* void *p = ubpf_lookup_map(m, &vdef); */
+		/* INFO("looking up the new pointer %p\n", p); */
+	} else {
+		INFO("Warning: vip_map map not found!\n");
+	}
+
+	/* Add a new real */
+	m = ubpf_select_map("reals", config->vm);
+	if (m) {
+		int real_num = 0;
+		ubpf_update_map(m, &real_num, &real);
+		INFO("Add a real 192.168.1.1\n");
+	} else {
+		INFO("Warning: reals map not found!\n");
+	}
 
 	/* Add a real to vip */
 	m = ubpf_select_map("ch_rings", config->vm);
-	if (!m) {
+	if (m) {
+		const int ch_ring_size = 65537;
+		const int pos = 0;
+		int ch_rings_key = vip_num * ch_ring_size + pos;
+		ubpf_update_map(m, &ch_rings_key, &real.dst);
+		INFO("Add real to vip\n");
+	} else {
 		INFO("Warning: ch_rings map not found!\n");
-		return 1;
 	}
-	const int ch_ring_size = 65537;
-	const int pos = 0;
-	int ch_rings_key = vip_num * ch_ring_size + pos;
-	ubpf_update_map(m, &ch_rings_key, &real.dst);
-	INFO("Add real to vip\n");
 
 	/* Configure default MAC address */
 	m = ubpf_select_map("ctl_array", config->vm);
-	if (!m) {
+	if (m) {
+		int ctl_array_index = 0;
+		struct ctl_value ctl_val = {
+			/* .mac = {0x3c,0xfd,0xfe,0x56,0x05,0x42}, */
+			.mac = {0x3c,0xfd,0xfe,0x56,0x12,0x82}, // Gateway or the other machines mac
+		};
+		ubpf_update_map(m, &ctl_array_index, &ctl_val);
+		INFO("Updated default mac address\n");
+	} else {
 		INFO("Warning: ctl_array map not found!\n");
-		return 1;
 	}
-	int ctl_array_index = 0;
-	struct ctl_value ctl_val = {
-		/* .mac = {0x3c,0xfd,0xfe,0x56,0x05,0x42}, */
-		.mac = {0x3c,0xfd,0xfe,0x56,0x12,0x82}, // Gateway or the other machines mac
-	};
-	ubpf_update_map(m, &ctl_array_index, &ctl_val);
-	INFO("Updated default mac address\n");
 
 	/* Configure LRU mapping */
 	/* I am using Hash map instead of LRU_HASH */
 	m = ubpf_select_map("lru_mapping", config->vm);
-	if (!m) {
+	if (m) {
+		int count_cores = 1;
+		struct ubpf_map_def map_def = {
+			.type = UBPF_MAP_TYPE_HASHMAP, // not LRU?
+			.key_size = sizeof(struct flow_key),
+			.value_size = sizeof(struct real_pos_lru),
+			.max_entries = 10000,
+			.nb_hash_functions = 0,
+		};
+		for (int c = 0; c < count_cores; c++) {
+			// TODO: create a new map need uBPF api
+			char name[9];
+			snprintf(name, 8, "lru%d", c);
+			void *new_map = ubpf_create_map(name, &map_def, config->vm);
+			ubpf_update_map(m, &c, &new_map);
+			INFO("Add a Hash map for core %d\n", c);
+		}
+	} else {
 		INFO("Warning: lru_mapping map not found!\n");
-		return 1;
-	}
-	int count_cores = 1;
-	struct ubpf_map_def map_def = {
-		.type = UBPF_MAP_TYPE_HASHMAP, // not LRU?
-		.key_size = sizeof(struct flow_key),
-		.value_size = sizeof(struct real_pos_lru),
-		.max_entries = 10000,
-		.nb_hash_functions = 0,
-	};
-	for (int c = 0; c < count_cores; c++) {
-		// TODO: create a new map need uBPF api
-		char name[9];
-		snprintf(name, 8, "lru%d", c);
-		void *new_map = ubpf_create_map(name, &map_def, config->vm);
-		ubpf_update_map(m, &c, &new_map);
-		INFO("Add a Hash map for core %d\n", c);
 	}
 
 	return 0;

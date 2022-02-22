@@ -285,6 +285,7 @@ pump_packets(struct xsk_socket_info *xsk, struct ubpf_vm *vm)
 			pktctx.trim_head = 0;
 			/* int ret = run_vm(vm, &pktctx, sizeof(pktctx)); */
 			/* uint64_t start_ts = readTSC(); */
+			/* DEBUG("before processing new packet\n"); */
 			int ret = fn(&pktctx, sizeof(pktctx));
 			/* uint64_t end_ts = readTSC(); */
 			/* calc_latency_from_ts(start_ts, end_ts); */
@@ -292,7 +293,9 @@ pump_packets(struct xsk_socket_info *xsk, struct ubpf_vm *vm)
 			/* DEBUG("action: %d\n", ret); */
 			batch[i]->len = pktctx.pkt_len;
 			batch[i]->addr += pktctx.trim_head;
+			/* DEBUG("before apply action\n"); */
 			apply_action(xsk, batch[i], ret);
+			/* DEBUG("after apply action\n"); */
 
 #ifdef SHOW_THROUGHPUT
 			pkt_count++;

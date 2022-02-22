@@ -4,7 +4,7 @@
 #include "labels.h"
 
 
-#define MAX_NR_MAPS  10
+#define MAX_NR_MAPS  16
 
 /** map_names and map_fds are used for identifying the file descriptor of the
  * map that should be accessed during a lookup or an update. They are
