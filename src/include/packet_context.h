@@ -14,4 +14,10 @@ struct pktctx {
 	uint32_t trim_head; // out: skip n bytes from the head
 };
 
+struct pktctxbatch {
+	uint32_t cnt; // number of packets in this batch
+	struct pktctx *pkts; // points to array of pktctx pointers
+	int *rets; // points to an array of integers
+};
+
 #endif

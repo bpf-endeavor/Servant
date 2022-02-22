@@ -248,7 +248,12 @@ pump_packets(struct xsk_socket_info *xsk, struct ubpf_vm *vm)
 	uint32_t rx;
 	const uint32_t cnt = config.batch_size;
 	struct xdp_desc *batch[cnt];
-	struct pktctx pktctx;
+	struct pktctx _pkt_ctx_arr[cnt];
+	int _ret_arr[cnt];
+	struct pktctxbatch pkt_batch = {};
+	pkt_batch.pkts = _pkt_ctx_arr;
+	pkt_batch.rets = _ret_arr;
+	/* struct pktctx pktctx; */
 
 	if (!config.jitted) {
 		INFO("Intentionally use jitted mode (ignore the flag)\n");
@@ -262,59 +267,65 @@ pump_packets(struct xsk_socket_info *xsk, struct ubpf_vm *vm)
 	}
 
 	for(;;) {
-		if (config.terminate) {
+		if (config.terminate)
 			break;
-		}
 
-		if (xsk->outstanding_tx > 0) {
+		if (xsk->outstanding_tx > 0)
 			complete_tx(xsk);
-		}
+
 		rx = poll_rx_queue(xsk, batch, cnt);
 		if (!rx)
 			continue;
 
-		// Pass to brain
+		/* Perpare batch */
+		pkt_batch.cnt = rx;
 		for (int i = 0; i < rx; i++) {
 			uint64_t addr = batch[i]->addr;
 			addr = xsk_umem__add_offset_to_addr(addr);
 			size_t ctx_len = batch[i]->len;
 			void *ctx = xsk_umem__get_data(xsk->umem->buffer, addr);
-			pktctx.data = ctx;
-			pktctx.data_end = ctx + ctx_len;
-			pktctx.pkt_len = ctx_len;
-			pktctx.trim_head = 0;
-			/* int ret = run_vm(vm, &pktctx, sizeof(pktctx)); */
-			/* uint64_t start_ts = readTSC(); */
-			/* DEBUG("before processing new packet\n"); */
-			int ret = fn(&pktctx, sizeof(pktctx));
-			/* uint64_t end_ts = readTSC(); */
-			/* calc_latency_from_ts(start_ts, end_ts); */
+			pkt_batch.pkts[i].data = ctx;
+			pkt_batch.pkts[i].data_end = ctx + ctx_len;
+			pkt_batch.pkts[i].pkt_len = ctx_len;
+			pkt_batch.pkts[i].trim_head = 0;
+			pkt_batch.rets[i] = 0;
+		}
 
+		/* Pass batch to the vm */
+		/* int ret = run_vm(vm, &pktctx, sizeof(pktctx)); */
+		/* uint64_t start_ts = readTSC(); */
+		/* DEBUG("before processing new packet\n"); */
+		/* int ret = fn(&pkt_batch, sizeof(pkt_batch)); */
+		fn(&pkt_batch, sizeof(pkt_batch));
+		/* uint64_t end_ts = readTSC(); */
+		/* calc_latency_from_ts(start_ts, end_ts); */
+
+		/* Apply action */
+		for (int i = 0; i < rx; i++) {
 			/* DEBUG("action: %d\n", ret); */
-			batch[i]->len = pktctx.pkt_len;
-			batch[i]->addr += pktctx.trim_head;
+			batch[i]->len = pkt_batch.pkts[i].pkt_len;
+			batch[i]->addr += pkt_batch.pkts[i].trim_head;
 			/* DEBUG("before apply action\n"); */
-			apply_action(xsk, batch[i], ret);
+			apply_action(xsk, batch[i], pkt_batch.rets[i]);
 			/* DEBUG("after apply action\n"); */
+		}
 
 #ifdef SHOW_THROUGHPUT
-			pkt_count++;
-			if (ret == SEND)
-				sent_count++;
-			clock_gettime(CLOCK_REALTIME, &spec);
-			uint64_t now = spec.tv_sec * 1000000 + spec.tv_nsec / 1000;
-			uint64_t delta = now - rprt_ts;
-			if (delta > 500000) {
-				INFO("TP: %d send: %d\n", pkt_count * 1000000 /
-						delta, sent_count * 1000000 /
-						delta);
-				pkt_count = 0;
-				sent_count = 0;
-				rprt_ts = now;
-			}
-#endif
+		pkt_count += rx;
+		/* if (ret == SEND) */
+		/* 	sent_count++; */
+		clock_gettime(CLOCK_REALTIME, &spec);
+		uint64_t now = spec.tv_sec * 1000000 + spec.tv_nsec / 1000;
+		uint64_t delta = now - rprt_ts;
+		if (delta > 500000) {
+			INFO("TP: %d send: %d\n", pkt_count * 1000000 /
+					delta, sent_count * 1000000 /
+					delta);
+			pkt_count = 0;
+			sent_count = 0;
+			rprt_ts = now;
 		}
+#endif
 	}
 	/* print_latency_result(); */
 }
-
