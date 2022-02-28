@@ -227,6 +227,78 @@ apply_action(struct xsk_socket_info *xsk, struct xdp_desc *desc, int action)
 	}
 }
 
+void
+apply_mix_action(struct xsk_socket_info *xsk, struct xdp_desc **batch,
+		struct pktctxbatch *ctx_batch, uint32_t cnt)
+{
+	/* DEBUG("apply_mix_action\n"); */
+	int ret;
+	// 0 drop, 1 tx, 2 pass
+	int action_count[3] = {};
+	uint32_t index_target[3] = {};
+	int reserved[3] = {};
+	struct xsk_ring_prod *rings[3] = {};
+	rings[0] = &xsk->umem->fq;
+	rings[1] = &xsk->tx;
+
+	// Count each action and prepare the descriptors
+	for (int i = 0; i < cnt; i++) {
+		batch[i]->len = ctx_batch->pkts[i].pkt_len;
+		batch[i]->addr += ctx_batch->pkts[i].trim_head;
+		if (ctx_batch->rets[i] == DROP) {
+			action_count[0]++;
+		} else if (ctx_batch->rets[i] == SEND) {
+			action_count[1]++;
+		} else {
+			// not implemented yet
+			continue;
+		}
+	}
+	/* DEBUG("action count 0: %d 1: %d\n", action_count[0], action_count[1]); */
+
+	// Try to reserve space on rings
+	for (int i = 0; i < 2; i++) {
+		if (action_count[i] < 1) {
+			continue;
+		}
+		ret = xsk_ring_prod__reserve(&xsk->tx, action_count[i], &index_target[i]);
+		if (ret != action_count[i]) {
+			if (ret < 0) {
+				ERROR("Failed to reserve packets on queue!\n");
+				exit(EXIT_FAILURE);
+			}
+			ERROR("Failed to reserve space on queue\n");
+			continue;
+		}
+		reserved[i] = 1;
+		/* DEBUG("reserve action %d: %d\n", i, action_count[i]); */
+	}
+
+	// Place descriptors on rings
+	for (int i = 0; i < cnt; i++) {
+		uint64_t orig = xsk_umem__extract_addr(batch[i]->addr);
+		if (ctx_batch->rets[i] == DROP) {
+			*xsk_ring_prod__fill_addr(rings[0], index_target[0]) = orig;
+			index_target[0]++;
+		} else if (ctx_batch->rets[i] == SEND) {
+			// Index of descriptors in the umem
+			xsk_ring_prod__tx_desc(rings[1], index_target[1])->addr = orig;
+			xsk_ring_prod__tx_desc(rings[1], index_target[1])->len = batch[i]->len;
+			index_target[1]++;
+		} else {
+			// Not implemented
+			continue;
+		}
+	}
+
+	xsk->outstanding_tx += action_count[1];
+	// Submit queue
+	for (int i = 0; i < 2; i++) {
+		if (reserved[i] > 0)
+			xsk_ring_prod__submit(rings[i], action_count[i]);
+	}
+}
+
 /**
  * Poll rx queue of the socket and send received packets to eBPF engine
  *
@@ -301,14 +373,15 @@ pump_packets(struct xsk_socket_info *xsk, struct ubpf_vm *vm)
 		/* calc_latency_from_ts(start_ts, end_ts); */
 
 		/* Apply action */
-		for (int i = 0; i < rx; i++) {
-			/* DEBUG("action: %d\n", ret); */
-			batch[i]->len = pkt_batch.pkts[i].pkt_len;
-			batch[i]->addr += pkt_batch.pkts[i].trim_head;
-			/* DEBUG("before apply action\n"); */
-			apply_action(xsk, batch[i], pkt_batch.rets[i]);
-			/* DEBUG("after apply action\n"); */
-		}
+		/* for (int i = 0; i < rx; i++) { */
+		/* 	/1* DEBUG("action: %d\n", ret); *1/ */
+		/* 	batch[i]->len = pkt_batch.pkts[i].pkt_len; */
+		/* 	batch[i]->addr += pkt_batch.pkts[i].trim_head; */
+		/* 	/1* DEBUG("before apply action\n"); *1/ */
+		/* 	apply_action(xsk, batch[i], pkt_batch.rets[i]); */
+		/* 	/1* DEBUG("after apply action\n"); *1/ */
+		/* } */
+		apply_mix_action(xsk, batch, &pkt_batch, rx);
 
 #ifdef SHOW_THROUGHPUT
 		pkt_count += rx;
