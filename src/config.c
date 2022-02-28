@@ -33,7 +33,7 @@ void parse_args(int argc, char *argv[])
     /* Default Values */
     config.frame_size = 2048;
     config.frame_shift = log2(config.frame_size);
-    config.headroom = 0;
+    config.headroom = 256;
     config.busy_poll = 0;
     config.busy_poll_duration = 20;
     config.batch_size = 32;
