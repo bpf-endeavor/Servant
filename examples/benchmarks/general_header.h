@@ -13,8 +13,8 @@
 #define sinline static inline __attribute__((__always_inline__))
 
 
-#define ISXDP
-/* #define ISUBPF */
+/* #define ISXDP */
+#define ISUBPF
 
 #ifdef ISXDP
 #include <linux/bpf.h>
