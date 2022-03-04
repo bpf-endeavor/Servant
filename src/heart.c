@@ -14,7 +14,7 @@
 
 #include <time.h>
 
-// #define SHOW_THROUGHPUT
+/* #define SHOW_THROUGHPUT */
 
 /* #include "duration_hist.h" */
 
@@ -261,7 +261,7 @@ apply_mix_action(struct xsk_socket_info *xsk, struct xdp_desc **batch,
 		if (action_count[i] < 1) {
 			continue;
 		}
-		ret = xsk_ring_prod__reserve(&xsk->tx, action_count[i], &index_target[i]);
+		ret = xsk_ring_prod__reserve(rings[i], action_count[i], &index_target[i]);
 		if (ret != action_count[i]) {
 			if (ret < 0) {
 				ERROR("Failed to reserve packets on queue!\n");
@@ -390,7 +390,7 @@ pump_packets(struct xsk_socket_info *xsk, struct ubpf_vm *vm)
 		clock_gettime(CLOCK_REALTIME, &spec);
 		uint64_t now = spec.tv_sec * 1000000 + spec.tv_nsec / 1000;
 		uint64_t delta = now - rprt_ts;
-		if (delta > 500000) {
+		if (delta > 2000000) {
 			INFO("TP: %d send: %d\n", pkt_count * 1000000 /
 					delta, sent_count * 1000000 /
 					delta);
