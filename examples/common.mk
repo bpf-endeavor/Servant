@@ -7,7 +7,7 @@ CFLAGS := -g -O2 -Wall
 LDFLAGS ?= -lbpf -lelf -lpthread $(USER_LIBS)
 NOSTDINC_FLAGS := -nostdinc -isystem $(shell $(CC) -print-file-name=include) -isystem /usr/local/include -isystem /usr/include
 ARCH=$(shell uname -m | sed 's/x86_64/x86/' | sed 's/i386/x86/')
-EXTRA_CFLAGS=-Werror
+EXTRA_CFLAGS ?= -Werror
 OUTDIR ?= ./
 
 .PHONY: clean all outdir_check
@@ -29,7 +29,7 @@ clean:
 	done
 
 $(KERN_OBJECTS): %.o: %.c
-	$(CLANG) -S $(NOSTDINC_FLAGS) $(LINUXINCLUDE) $(EXTRA_CFLAGS) \
+	$(CLANG) -S $(NOSTDINC_FLAGS) $(EXTRA_CFLAGS) \
 		-D__KERNEL__ -D__ASM_SYSREG_H -D__BPF_TRACING__ \
 		-DENABLE_ATOMICS_TESTS \
 		-D__TARGET_ARCH_$(ARCH) \

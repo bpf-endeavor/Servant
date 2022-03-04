@@ -14,7 +14,7 @@
 
 
 /* #define ISXDP */
-#define ISUBPF
+/* #define ISUBPF */
 
 #ifdef ISXDP
 #include <linux/bpf.h>
@@ -23,7 +23,19 @@
 #include <string.h>
 #define CONTEXT struct xdp_md
 
+struct {
+	__uint(type, BPF_MAP_TYPE_ARRAY);
+	__type(key, unsigned int);
+	__type(value, long);
+	__uint(max_entries, 1);
+	__uint(map_flags, BPF_F_MMAPABLE);
+} tput SEC(".maps");
+
+#define LOOKUP(name, keyptr) bpf_map_lookup_elem(&name, keyptr);
+
 #else
+#ifdef ISUBPF
+
 #define CONTEXT struct pktctx
 #include <servant/servant_engine.h>
 
@@ -49,8 +61,11 @@
 #define bpf_ntohs(x) ubpf_ntohs(x)
 #define bpf_htons(x) ubpf_htons(x)
 
-#define SEC(x) 
+#define LOOKUP(name, keyptr) ({char _name[] = #name; lookup(_name, keyptr);})
 
+#define SEC(x)
+
+#endif // ISUBPF
 #endif
 
 #endif
