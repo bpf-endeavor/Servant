@@ -37,6 +37,9 @@ struct config {
     char *uth_prog_path;
     // Userspace packet injection (Interpose link)
     int use_packet_injection;
+    // Map system
+    char **maps;
+    uint32_t count_maps;
     // Dummy
     int args[1]; // it is weired
     uint32_t tmp;

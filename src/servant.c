@@ -53,23 +53,29 @@ int main(int argc, char *argv[])
 	}
 	struct xsk_socket_info *xsk = setup_socket(config.ifname, config.qid);
 	/* ret = setup_map_system(config.ifindex); */
-	char *map_names[] = {
-		"xsks_map",
-		/* For BMC */
-		"map_kcache",
-		"map_stats",
-		/* For testing */
-		"test_map",
-		"data_map",
-		/* For Katran */
-		"ctl_array",
-		"reals",
-		"server_id_",
-		"stats",
-		"ch_rings",
-	};
-	const int count_map_names = 10;
-	ret = setup_map_system(map_names, count_map_names);
+	if (config.count_maps == 0) {
+		char *map_names[] = {
+			"xsks_map",
+			/* For BMC */
+			"map_kcache",
+			"map_stats",
+			/* For testing */
+			"test_map",
+			"data_map",
+			/* For Katran */
+			"ctl_array",
+			"reals",
+			"server_id_",
+			"stats",
+			"ch_rings",
+		};
+		const int count_map_names = 10;
+		ret = setup_map_system(map_names, count_map_names);
+	} else {
+		/* for (int i=0;i<config.count_maps;i++) */
+		/* 	printf("m: %s\n", config.maps[i]); */
+		ret = setup_map_system(config.maps, config.count_maps);
+	}
 	if (ret)
 		goto teardown;
 	if (config.custom_kern_prog) {

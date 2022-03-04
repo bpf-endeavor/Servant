@@ -22,7 +22,7 @@ void usage(char *prog_name)
             "Options:\n"
             "\t num-frames, frame-size, batch-size,rx-size, tx-size,\n"
             "\t copy-mode, skb-mode, xdp-prog, no-jit [disabled], uth,\n"
-            "\t busypoll, packet-injection\n"
+            "\t busypoll, packet-injection, map\n"
             );
     printf(desc, prog_name);
 }
@@ -50,7 +50,8 @@ void parse_args(int argc, char *argv[])
     config.has_uth = 0;
     config.uth_prog_path = NULL;
     config.use_packet_injection = 0;
-
+    config.maps = malloc(10 * sizeof(char *));
+    config.count_maps = 0;
 
     enum opts {
         HELP = 100,
@@ -65,7 +66,8 @@ void parse_args(int argc, char *argv[])
         NO_JIT,
         UTH,
         BUSY_POLLING,
-        PACKET_INJECTION
+        PACKET_INJECTION,
+        MAP
     };
     struct option long_opts[] = {
         {"help", no_argument, NULL, HELP},
@@ -81,6 +83,7 @@ void parse_args(int argc, char *argv[])
         {"uth", required_argument, NULL, UTH},
         {"busypoll", no_argument, NULL, BUSY_POLLING},
         {"packet-injection", no_argument, NULL, PACKET_INJECTION},
+        {"map", required_argument, NULL, MAP},
     };
     int ret;
     char optstring[] = "";
@@ -131,6 +134,9 @@ void parse_args(int argc, char *argv[])
                 exit(0);
             case PACKET_INJECTION:
                 config.use_packet_injection = 1;
+                break;
+            case MAP:
+                config.maps[config.count_maps++] = optarg;
                 break;
             default:
                 usage(argv[0]);
