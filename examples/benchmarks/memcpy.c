@@ -1,5 +1,7 @@
 #include "general_header.h"
 
+#define CHUNK_SIZE 20
+
 #ifdef ISUBPF
 sinline int bpf_prog(CONTEXT *ctx);
 /**
@@ -51,17 +53,17 @@ int bpf_prog(CONTEXT *ctx)
 	udp = (struct udphdr *)(ip + 1);
 	if (out_of_pkt(udp, data_end))
 		return XDP_DROP;
-	if (((void *)udp) + sizeof(*ip) > data_end)
+	if (((void *)udp) + CHUNK_SIZE > data_end)
 		return XDP_DROP;
 
 	/* for (i = 0; i < 64; i++) { */
-	/* 	memcpy(udp, ip, sizeof(*ip)); */
-	/* 	memcpy(ip, udp, sizeof(*ip)); */
+	/* 	memcpy(udp, ip, CHUNK_SIZE); */
+	/* 	memcpy(ip, udp, CHUNK_SIZE); */
 	/* } */
 
 	for (i = 0; i < 64; i++) {
-		mymemcpy(udp, ip, sizeof(*ip));
-		mymemcpy(ip, udp, sizeof(*ip));
+		mymemcpy(udp, ip, CHUNK_SIZE);
+		mymemcpy(ip, udp, CHUNK_SIZE);
 	}
 
 	value = LOOKUP(tput, &zero);

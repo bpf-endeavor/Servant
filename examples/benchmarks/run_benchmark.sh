@@ -31,6 +31,11 @@ if [ $# -lt 2 ]; then
 	exit 1
 fi
 
+if [ -f $2 ]; then
+	# Cause the regenration of the binary
+	rm $2
+fi
+
 mode=$1
 if [ $mode = xdp ]; then
 	run_xdp $2
