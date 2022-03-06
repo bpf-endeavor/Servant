@@ -14,6 +14,18 @@ int batch_processing_entry(struct pktctxbatch *batch)
 }
 #endif
 
+sinline void mymemcpy(void *dst, void *src, unsigned short size)
+{
+	short i = 0;
+	for (;i + sizeof(long) <= size;) {
+		*(long*)(dst+i) = *(long*)(src+i);
+		i += sizeof(long);
+	}
+	for (;i < size; i++) {
+		*(char *)(dst+i) = *(char *)(src+i);
+	}
+}
+
 SEC("prog")
 /* Entry of XDP program */
 #ifdef ISUBPF
@@ -42,10 +54,16 @@ int bpf_prog(CONTEXT *ctx)
 	if (((void *)udp) + sizeof(*ip) > data_end)
 		return XDP_DROP;
 
+	/* for (i = 0; i < 64; i++) { */
+	/* 	memcpy(udp, ip, sizeof(*ip)); */
+	/* 	memcpy(ip, udp, sizeof(*ip)); */
+	/* } */
+
 	for (i = 0; i < 64; i++) {
-		memcpy(udp, ip, sizeof(*ip));
-		memcpy(ip, udp, sizeof(*ip));
+		mymemcpy(udp, ip, sizeof(*ip));
+		mymemcpy(ip, udp, sizeof(*ip));
 	}
+
 	value = LOOKUP(tput, &zero);
 	if (value)
 		*value += 1;

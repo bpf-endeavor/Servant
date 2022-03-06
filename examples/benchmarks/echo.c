@@ -1,9 +1,8 @@
 #include "general_header.h"
 
+#ifdef ISUBPF
 sinline int bpf_prog(CONTEXT *ctx);
 
-
-#ifdef ISUBPF
 /**
  * Entry of the uBPF program
  */
@@ -17,7 +16,9 @@ int batch_processing_entry(struct pktctxbatch *batch)
 #endif
 
 SEC("prog")
-inline
+#ifdef ISUBPF
+sinline
+#endif
 int bpf_prog(CONTEXT *ctx)
 {
 	void *data = (void *)(long)ctx->data;

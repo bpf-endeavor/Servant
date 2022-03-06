@@ -1,6 +1,7 @@
 #include "general_header.h"
 
 #define FURTHER_PROCESSING 128
+#define INCSIZE 32
 
 #ifdef ISUBPF
 sinline int bpf_prog(CONTEXT *ctx);
@@ -15,6 +16,9 @@ int batch_processing_entry(struct pktctxbatch *batch)
 	return 0;
 }
 
+/**
+ * Print some information about the packet
+ */
 sinline void
 dump_info(CONTEXT *ctx, struct ethhdr *eth)
 {
@@ -40,31 +44,6 @@ swap_mac(struct ethhdr *eth)
 	memcpy(eth->h_source, tmp, 6);
 }
 
-sinline int
-push_header(CONTEXT *ctx)
-{
-	void *data;
-	void *data_end;
-	struct ethhdr *new_eth;
-	struct ethhdr *old_eth;
-#ifdef ISXDP
-	if (bpf_xdp_adjust_head(ctx, 0 - (int)sizeof(struct iphdr))) {
-		return XDP_DROP;
-	}
-#else
-	ADJUST_HEAD_INCREASE(ctx, sizeof(struct iphdr));
-#endif
-	data = (void*)(long)ctx->data;
-	data_end = (void*)(long)ctx->data_end;
-	new_eth = data;
-	old_eth = data + sizeof(struct iphdr);
-	if (out_of_pkt(new_eth, data_end) || out_of_pkt(old_eth, data_end)) {
-		return XDP_DROP;
-	}
-	memcpy(new_eth, old_eth, sizeof(struct ethhdr));
-	return FURTHER_PROCESSING;
-}
-
 SEC("prog")
 /* Entry function */
 #ifdef ISUBPF
@@ -76,22 +55,58 @@ int bpf_prog(CONTEXT *ctx)
 	int ret;
 	void* data;
 	void* data_end;
+	void *old_ptr;
 	struct ethhdr *eth;
+	unsigned short pktsize = (long)ctx->data_end - (long)ctx->data;
 
-	for (i = 0; i < 8; i++) {
-		ret = push_header(ctx);
-		if (ret != FURTHER_PROCESSING)
-			return ret;
+#ifdef ISXDP
+	if (bpf_xdp_adjust_head(ctx, 0 - INCSIZE)) {
+		return XDP_DROP;
 	}
+#else
+	ADJUST_HEAD_INCREASE(ctx, INCSIZE);
+#endif
 
 	data = (void *)(long)ctx->data;
 	data_end = (void *)(long)ctx->data_end;
+	old_ptr = data + INCSIZE;
+	ubpf_memmove(data, old_ptr, pktsize);
+	/* DUMP("psize: %d\n", pktsize); */
+
+	/* swap every thing and send back */
 	eth = data;
 	if (out_of_pkt(eth, data_end))
 		return XDP_DROP;
 	swap_mac(eth);
 	eth->h_proto = bpf_htons(ETH_P_IP);
+
+	if (eth->h_proto == bpf_htons(ETH_P_IP)) {
+		struct iphdr *ip = (struct iphdr *)(eth + 1);
+		if (out_of_pkt(ip, data_end))
+			return XDP_DROP;
+		// Swap IP
+		unsigned int tmp_ip = ip->saddr;
+		ip->saddr = ip->daddr;
+		ip->daddr = tmp_ip;
+		if (ip->protocol == IPPROTO_UDP) {
+			struct udphdr *udp = (data + (sizeof(*eth) + (ip->ihl * 4)));
+			if (out_of_pkt(udp, data_end))
+				return XDP_DROP;
+			// Swap port
+			unsigned short tmp_port = udp->source;
+			udp->source = udp->dest;
+			udp->dest = tmp_port;
+			short curlen = bpf_ntohs(udp->len);
+			char *payload_extra = (char *)(udp + 1) + curlen;
+			udp->len = bpf_htons(curlen + INCSIZE);
+			ip->tot_len = bpf_htons((long)data_end - (long)ip);
+			for (int k = 0; k < INCSIZE; k++) {
+				payload_extra[k] = (k % 10) + 0x30;
+			}
+		}
+	}
+
 	/* dump_info(ctx, eth); */
-	INC_TPUT;
-	return XDP_DROP;
+	/* INC_TPUT; */
+	return XDP_TX;
 }

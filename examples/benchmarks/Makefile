@@ -1,4 +1,4 @@
-KERN_OBJECTS = adjust_pkt_size.o echo.o memcpy.o xdp.o
+KERN_OBJECTS = adjust_pkt_size.o echo.o memcpy.o xdp.o test_inc_pkt_head.o
 USER_OBJECTS = report_tput loader
 OUTDIR = bin/
 
