@@ -19,8 +19,11 @@ run_xdp() {
 
 run_ubpf() {
 	make UBPF=1
-	sudo taskset -c 0 $servant --busypoll --xdp-prog "$curdir/bin/xdp.o" \
-		--map xsks_map --map tput $device 0 $1
+	sudo taskset -c 2 $servant --busypoll --xdp-prog "$curdir/bin/xdp.o" \
+		--map xsks_map --map tput \
+		--rx-size 4096 --tx-size 4096 \
+		--batch-size 64 \
+		$device 2 $1
 }
 
 if [ $# -lt 2 ]; then

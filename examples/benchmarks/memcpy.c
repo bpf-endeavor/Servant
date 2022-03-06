@@ -49,5 +49,6 @@ int bpf_prog(CONTEXT *ctx)
 	value = LOOKUP(tput, &zero);
 	if (value)
 		*value += 1;
-	return XDP_TX;
+	return XDP_DROP;
+	// return XDP_TX;
 }

@@ -13,8 +13,13 @@
 #define sinline static inline __attribute__((__always_inline__))
 
 
-/* #define ISXDP */
+#ifndef ISXDP
+#ifndef ISUBPF
+/* If compile options has not selected an option */
+#define ISXDP
 /* #define ISUBPF */
+#endif
+#endif
 
 #ifdef ISXDP
 #include <linux/bpf.h>
@@ -67,5 +72,11 @@ struct {
 
 #endif // ISUBPF
 #endif
+
+#define INC_TPUT { \
+	const unsigned int __zero = 0; \
+	int *value = LOOKUP(tput, &__zero); \
+	if (value) \
+		*value += 1; }
 
 #endif

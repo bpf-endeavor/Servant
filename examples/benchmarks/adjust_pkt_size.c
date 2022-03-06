@@ -2,9 +2,8 @@
 
 #define FURTHER_PROCESSING 128
 
-sinline int bpf_prog(CONTEXT *ctx);
-
 #ifdef ISUBPF
+sinline int bpf_prog(CONTEXT *ctx);
 /**
  * Entry of the uBPF program
  */
@@ -68,7 +67,10 @@ push_header(CONTEXT *ctx)
 
 SEC("prog")
 /* Entry function */
-sinline int bpf_prog(CONTEXT *ctx)
+#ifdef ISUBPF
+	sinline
+#endif
+int bpf_prog(CONTEXT *ctx)
 {
 	int i;
 	int ret;
@@ -90,5 +92,6 @@ sinline int bpf_prog(CONTEXT *ctx)
 	swap_mac(eth);
 	eth->h_proto = bpf_htons(ETH_P_IP);
 	/* dump_info(ctx, new_eth); */
-	return XDP_TX;
+	INC_TPUT;
+	return XDP_DROP;
 }
