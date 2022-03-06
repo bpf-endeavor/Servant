@@ -84,7 +84,7 @@ void complete_tx(struct xsk_socket_info *xsk) {
 		xsk_ring_prod__submit(&xsk->umem->fq, rcvd);
 		xsk_ring_cons__release(&xsk->umem->cq, rcvd);
 		xsk->outstanding_tx -= rcvd;
-		xsk->ring_stats.tx_npkts += rcvd;
+		/* xsk->ring_stats.tx_npkts += rcvd; */
 	}
 }
 
@@ -97,7 +97,7 @@ void complete_tx(struct xsk_socket_info *xsk) {
  *
  * @return The number of packets read from the Rx queue
  */
-uint32_t
+static inline __attribute__((__always_inline__)) uint16_t
 poll_rx_queue(struct xsk_socket_info *xsk, struct xdp_desc **batch,
     uint32_t cnt)
 {
@@ -125,7 +125,7 @@ poll_rx_queue(struct xsk_socket_info *xsk, struct xdp_desc **batch,
         batch[i] = desc;
     }
     xsk_ring_cons__release(&xsk->rx, rcvd);
-    xsk->ring_stats.rx_npkts += rcvd;
+    /* xsk->ring_stats.rx_npkts += rcvd; */
     return rcvd;
 }
 
