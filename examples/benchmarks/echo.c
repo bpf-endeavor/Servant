@@ -51,5 +51,7 @@ int bpf_prog(CONTEXT *ctx)
 			udp->dest = tmp_port;
 		}
 	}
+	/* INC_TPUT; */
+	/* return XDP_DROP; */
 	return XDP_TX;
 }

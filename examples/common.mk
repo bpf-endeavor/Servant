@@ -13,7 +13,6 @@ OUTDIR ?= ./
 
 _KERN_OBJECTS = $(addprefix $(OUTDIR), $(KERN_OBJECTS))
 _USER_OBJECTS = $(addprefix $(OUTDIR), $(USER_OBJECTS))
-$(info $(_USER_OBJECTS))
 
 .PHONY: clean all outdir_check
 
