@@ -1,4 +1,5 @@
 #include "general_header.h"
+#define REPEAT 2
 #ifdef ISUBPF
 sinline int bpf_prog(CONTEXT *ctx);
 /**
@@ -24,7 +25,7 @@ int bpf_prog(CONTEXT *ctx)
 	if (out_of_pkt(ip, data_end))
 		return XDP_DROP;
 	unsigned int c = (unsigned int)(long)ctx->data;
-	for (int i = 0; i < 2048; i++) {
+	for (int i = 0; i < REPEAT; i++) {
 		c++;
 	}
 	ip->tos = c % 8;
