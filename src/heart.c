@@ -15,7 +15,7 @@
 #include <time.h>
 
 /* #define SHOW_THROUGHPUT */
-/* #define VM_CALL_BATCHING */
+#define VM_CALL_BATCHING
 
 /* #include "duration_hist.h" */
 
@@ -113,16 +113,12 @@ poll_rx_queue(struct xsk_socket_info *xsk, struct xdp_desc **batch,
             recvfrom(xsk_socket__fd(xsk->xsk), NULL, 0, MSG_DONTWAIT,
                     NULL, NULL);
         }
-        return rcvd;
+        return 0;
     }
     for (i = 0; i < rcvd; i++) {
         struct xdp_desc *desc =
             (struct xdp_desc *)xsk_ring_cons__rx_desc(&xsk->rx, idx_rx);
         idx_rx++;
-        /* uint64_t addr = desc->addr; */
-        /* uint32_t len = desc->len; */
-        /* addr = xsk_umem__add_offset_to_addr(addr); */
-        /* void *pkt = xsk_umem__get_data(xsk->umem->buffer, addr); */
         batch[i] = desc;
     }
     xsk_ring_cons__release(&xsk->rx, rcvd);
@@ -204,11 +200,15 @@ void
 apply_action(struct xsk_socket_info *xsk, struct xdp_desc *desc, int action)
 {
 	/* DEBUG("action: %d\n", action); */
-	/* int ret; */
+	int ret;
 	// TODO: Implement the list of actions (DROP, TX, ...)
 	if (action == SEND) {
 		/* ret = tx(xsk, &desc, 1); */
-		tx(xsk, &desc, 1);
+		ret = tx(xsk, &desc, 1);
+		if (ret != 1) {
+			DEBUG("Failed to send packet\n");
+			drop(xsk, &desc, 1);
+		}
 	} else if (action == PASS) {
 		/* Send to application using the interpose layer */
 		uint64_t addr = desc->addr;
@@ -388,8 +388,13 @@ pump_packets(struct xsk_socket_info *xsk, struct ubpf_vm *vm)
 			/* uint64_t end_ts = readTSC(); */
 			/* calc_latency_from_ts(start_ts, end_ts); */
 			batch[i]->len = pktctx.pkt_len;
-			batch[i]->addr += pktctx.trim_head;
+			/* batch[i]->addr += pktctx.trim_head; */
 			apply_action(xsk, batch[i], ret);
+#ifdef SHOW_THROUGHPUT
+			/* DEBUG("action: %d\n", ret); */
+			if (ret == SEND)
+				sent_count++;
+#endif
 		}
 #endif
 
