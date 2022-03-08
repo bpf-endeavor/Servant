@@ -15,6 +15,7 @@
 #include <time.h>
 
 /* #define SHOW_THROUGHPUT */
+/* #define VM_CALL_BATCHING */
 
 /* #include "duration_hist.h" */
 
@@ -320,12 +321,15 @@ pump_packets(struct xsk_socket_info *xsk, struct ubpf_vm *vm)
 	uint32_t rx;
 	const uint32_t cnt = config.batch_size;
 	struct xdp_desc *batch[cnt];
+#ifdef VM_CALL_BATCHING
 	struct pktctx _pkt_ctx_arr[cnt];
 	int _ret_arr[cnt];
 	struct pktctxbatch pkt_batch = {};
 	pkt_batch.pkts = _pkt_ctx_arr;
 	pkt_batch.rets = _ret_arr;
-	/* struct pktctx pktctx; */
+#else
+	struct pktctx pktctx;
+#endif
 
 	if (!config.jitted) {
 		INFO("Intentionally use jitted mode (ignore the flag)\n");
@@ -349,6 +353,7 @@ pump_packets(struct xsk_socket_info *xsk, struct ubpf_vm *vm)
 		if (!rx)
 			continue;
 
+#ifdef VM_CALL_BATCHING
 		/* Perpare batch */
 		pkt_batch.cnt = rx;
 		for (int i = 0; i < rx; i++) {
@@ -362,26 +367,31 @@ pump_packets(struct xsk_socket_info *xsk, struct ubpf_vm *vm)
 			pkt_batch.pkts[i].trim_head = 0;
 			pkt_batch.rets[i] = 0;
 		}
-
 		/* Pass batch to the vm */
-		/* int ret = run_vm(vm, &pktctx, sizeof(pktctx)); */
 		/* uint64_t start_ts = readTSC(); */
-		/* DEBUG("before processing new packet\n"); */
-		/* int ret = fn(&pkt_batch, sizeof(pkt_batch)); */
 		fn(&pkt_batch, sizeof(pkt_batch));
 		/* uint64_t end_ts = readTSC(); */
 		/* calc_latency_from_ts(start_ts, end_ts); */
-
-		/* Apply action */
-		/* for (int i = 0; i < rx; i++) { */
-		/* 	/1* DEBUG("action: %d\n", ret); *1/ */
-		/* 	batch[i]->len = pkt_batch.pkts[i].pkt_len; */
-		/* 	batch[i]->addr += pkt_batch.pkts[i].trim_head; */
-		/* 	/1* DEBUG("before apply action\n"); *1/ */
-		/* 	apply_action(xsk, batch[i], pkt_batch.rets[i]); */
-		/* 	/1* DEBUG("after apply action\n"); *1/ */
-		/* } */
 		apply_mix_action(xsk, batch, &pkt_batch, rx);
+#else
+		for (int i = 0; i < rx; i++) {
+			uint64_t addr = batch[i]->addr;
+			addr = xsk_umem__add_offset_to_addr(addr);
+			size_t ctx_len = batch[i]->len;
+			void *ctx = xsk_umem__get_data(xsk->umem->buffer, addr);
+			pktctx.data = ctx;
+			pktctx.data_end = ctx + ctx_len;
+			pktctx.pkt_len = ctx_len;
+			pktctx.trim_head = 0;
+			/* uint64_t start_ts = readTSC(); */
+			int ret = fn(&pktctx, sizeof(pktctx));
+			/* uint64_t end_ts = readTSC(); */
+			/* calc_latency_from_ts(start_ts, end_ts); */
+			batch[i]->len = pktctx.pkt_len;
+			batch[i]->addr += pktctx.trim_head;
+			apply_action(xsk, batch[i], ret);
+		}
+#endif
 
 #ifdef SHOW_THROUGHPUT
 		pkt_count += rx;
