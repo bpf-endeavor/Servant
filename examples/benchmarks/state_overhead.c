@@ -1,7 +1,6 @@
 #include "general_header.h"
 
 #ifdef COPY_STATE
-#define STATE_ON_PACKET_SIZE 128
 struct on_packet_state {
 	char state[COPY_STATE];
 } __attribute__((packed));
@@ -20,7 +19,7 @@ int batch_processing_entry(struct pktctxbatch *batch)
 	return 0;
 }
 #endif
- 
+
 sinline void mymemcpy(void *dst, void *src, unsigned short size)
 {
 	short i = 0;
@@ -42,7 +41,7 @@ int bpf_prog(CONTEXT *ctx)
 {
 	void * data = (void *)(long)ctx->data;
 	void * data_end = (void *)(long)ctx->data_end;
-	struct on_packet_state *pkt_state = data_end - COPY_STATE;
+	struct on_packet_state *pkt_state = data_end - sizeof(struct on_packet_state);
 	struct on_packet_state state;
 	/* memcpy(&state, pkt_state, sizeof(struct on_packet_state)); */
 	mymemcpy(&state, pkt_state, sizeof(struct on_packet_state));

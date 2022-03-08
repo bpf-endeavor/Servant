@@ -6,7 +6,7 @@ curdir=`dirname $0`
 curdir=`realpath $curdir`
 loader="$curdir/bin/loader"
 servant="$curdir/../../src/servant"
-queue=2
+queue=0
 
 usage() {
 	echo "$0 <exp_mode> <binary_object>"
@@ -24,6 +24,7 @@ run_xdp() {
 }
 
 run_ubpf() {
+	rm $curdir/bin/xdp.o
 	if [ -f $1 ]; then
 		rm $1
 	fi

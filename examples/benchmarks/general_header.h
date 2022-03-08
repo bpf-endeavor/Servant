@@ -57,6 +57,10 @@ struct {
 	xdp->data -= incsize; \
 	xdp->pkt_len += incsize;}
 
+#define bpf_xdp_adjust_tail(xdp, size) {\
+	xdp->pkt_len += size; \
+	xdp->data_end += size; }
+
 /* #define ADJUST_HEAD_INCREASE(xdp, incsize) {\ */
 /* 	int pktsize = xdp->data_end - xdp->data; \ */
 /* 	ubpf_memmove(xdp->data + incsize, xdp->data, pktsize); \ */

@@ -1,6 +1,6 @@
 #include "general_header.h"
 
-#define CHUNK_SIZE 20
+#define CHUNK_SIZE sizeof(struct iphdr)
 
 #ifdef ISUBPF
 sinline int bpf_prog(CONTEXT *ctx);
@@ -65,6 +65,9 @@ int bpf_prog(CONTEXT *ctx)
 		mymemcpy(udp, ip, CHUNK_SIZE);
 		mymemcpy(ip, udp, CHUNK_SIZE);
 	}
+
+	/* memcpy(udp, ip, CHUNK_SIZE); */
+	/* mymemcpy(udp, ip, CHUNK_SIZE); */
 
 	value = LOOKUP(tput, &zero);
 	if (value)

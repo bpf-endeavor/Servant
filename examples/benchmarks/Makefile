@@ -1,6 +1,6 @@
 OUTDIR = ./bin/
 KERN_OBJECTS = adjust_pkt_size.o echo.o memcpy.o xdp.o test_inc_pkt_head.o \
-			state_overhead.o
+			state_overhead.o payload.o loop.o
 USER_OBJECTS = report_tput loader
 
 ifdef XDP
