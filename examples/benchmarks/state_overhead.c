@@ -20,6 +20,18 @@ int batch_processing_entry(struct pktctxbatch *batch)
 	return 0;
 }
 #endif
+ 
+sinline void mymemcpy(void *dst, void *src, unsigned short size)
+{
+	short i = 0;
+	for (;i + sizeof(long) <= size;) {
+		*(long*)(dst+i) = *(long*)(src+i);
+		i += sizeof(long);
+	}
+	for (;i < size; i++) {
+		*(char *)(dst+i) = *(char *)(src+i);
+	}
+}
 
 SEC("prog")
 /* Entry of XDP program */
@@ -30,9 +42,10 @@ int bpf_prog(CONTEXT *ctx)
 {
 	void * data = (void *)(long)ctx->data;
 	void * data_end = (void *)(long)ctx->data_end;
-	struct on_packet_state *pkt_state = data_end - STATE_ON_PACKET_SIZE;
+	struct on_packet_state *pkt_state = data_end - COPY_STATE;
 	struct on_packet_state state;
-	memcpy(&state, pkt_state, sizeof(struct on_packet_state));
+	/* memcpy(&state, pkt_state, sizeof(struct on_packet_state)); */
+	mymemcpy(&state, pkt_state, sizeof(struct on_packet_state));
 	INC_TPUT;
 	return XDP_DROP;
 }

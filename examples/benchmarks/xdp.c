@@ -7,7 +7,7 @@
 #define FAIL_PTR_BOUND(s, end) (s + 1) > (void *)end
 
 #ifdef COPY_STATE
-#define STATE_ON_PACKET_SIZE 128
+#define STATE_ON_PACKET_SIZE 256
 struct on_packet_state {
 	char state[COPY_STATE];
 } __attribute__((packed));
@@ -28,13 +28,25 @@ struct {
 	__uint(map_flags, BPF_F_MMAPABLE);
 } tput SEC(".maps");
 
+static inline __attribute__((__always_inline__)) void
+mymemcpy(void *dst, void *src, unsigned short size)
+{
+	short i = 0;
+	for (;i + sizeof(long) <= size;) {
+		*(long*)(dst+i) = *(long*)(src+i);
+		i += sizeof(long);
+	}
+	for (;i < size; i++) {
+		*(char *)(dst+i) = *(char *)(src+i);
+	}
+}
 
 SEC("prog")
 int _prog(struct xdp_md *ctx)
 {
 #ifdef COPY_STATE
 	/* Allocate space */
-	int ret = bpf_xdp_adjust_tail(ctx, STATE_ON_PACKET_SIZE);
+	int ret = bpf_xdp_adjust_tail(ctx, COPY_STATE);
 	if (ret)
 		return XDP_DROP;
 
@@ -43,7 +55,7 @@ int _prog(struct xdp_md *ctx)
 
 	/* Copy state to the packet and send to userspace */
 	unsigned short tmpoff = (long)ctx->data_end - (long)ctx->data;
-	tmpoff -= STATE_ON_PACKET_SIZE;
+	tmpoff -= COPY_STATE;
 	if (tmpoff > 1500)
 		return XDP_DROP;
 	struct on_packet_state *pkt_state = data + tmpoff;
@@ -51,7 +63,8 @@ int _prog(struct xdp_md *ctx)
 		return XDP_DROP;
 	if (data + sizeof(*pkt_state) > data_end)
 		return XDP_DROP;
-	memcpy(pkt_state->state, data, sizeof(*pkt_state));
+	/* memcpy(pkt_state->state, data, sizeof(*pkt_state)); */
+	mymemcpy(pkt_state->state, data, sizeof(*pkt_state));
 #endif
 	return bpf_redirect_map(&xsks_map, ctx->rx_queue_index, XDP_PASS);
 }
