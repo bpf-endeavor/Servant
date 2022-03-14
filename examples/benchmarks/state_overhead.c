@@ -1,3 +1,4 @@
+/* This program should only be used in uBPF engine */
 #include "general_header.h"
 
 #ifdef COPY_STATE
@@ -18,7 +19,6 @@ int batch_processing_entry(struct pktctxbatch *batch)
 	}
 	return 0;
 }
-#endif
 
 sinline void mymemcpy(void *dst, void *src, unsigned short size)
 {
@@ -32,11 +32,7 @@ sinline void mymemcpy(void *dst, void *src, unsigned short size)
 	}
 }
 
-SEC("prog")
-/* Entry of XDP program */
-#ifdef ISUBPF
 sinline
-#endif
 int bpf_prog(CONTEXT *ctx)
 {
 	void * data = (void *)(long)ctx->data;
@@ -48,3 +44,4 @@ int bpf_prog(CONTEXT *ctx)
 	INC_TPUT;
 	return XDP_DROP;
 }
+#endif

@@ -55,7 +55,7 @@ int bpf_prog(CONTEXT *ctx)
 	int ret;
 	void* data;
 	void* data_end;
-	void *old_ptr;
+	/* void *old_ptr; */
 	struct ethhdr *eth;
 	unsigned short pktsize = (long)ctx->data_end - (long)ctx->data;
 
@@ -69,8 +69,8 @@ int bpf_prog(CONTEXT *ctx)
 
 	data = (void *)(long)ctx->data;
 	data_end = (void *)(long)ctx->data_end;
-	old_ptr = data + INCSIZE;
-	ubpf_memmove(data, old_ptr, pktsize);
+	/* old_ptr = data + INCSIZE; */
+	/* ubpf_memmove(data, old_ptr, pktsize); */
 	/* DUMP("psize: %d\n", pktsize); */
 
 	/* swap every thing and send back */
@@ -107,6 +107,7 @@ int bpf_prog(CONTEXT *ctx)
 	}
 
 	/* dump_info(ctx, eth); */
-	/* INC_TPUT; */
-	return XDP_TX;
+	INC_TPUT;
+	return XDP_DROP;
+	/* return XDP_TX; */
 }
