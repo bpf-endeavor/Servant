@@ -373,6 +373,11 @@ pump_packets(struct xsk_socket_info *xsk, struct ubpf_vm *vm)
 		/* uint64_t end_ts = readTSC(); */
 		/* calc_latency_from_ts(start_ts, end_ts); */
 		apply_mix_action(xsk, batch, &pkt_batch, rx);
+#ifdef SHOW_THROUGHPUT
+		for (int i = 0; i < rx; i++)
+			if (pkt_batch.rets[i] == SEND)
+				sent_count++;
+#endif
 #else
 		for (int i = 0; i < rx; i++) {
 			uint64_t addr = batch[i]->addr;

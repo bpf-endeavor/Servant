@@ -7,7 +7,7 @@
 
 #include "brain.h"
 #include "log.h"
-#include "config.h"
+/* #include "config.h" */
 #include "map.h"
 
 static uint64_t
@@ -162,23 +162,23 @@ setup_ubpf_engine(char *program_path, struct ubpf_vm **_vm)
 	 * This part of code dumps the jitted code
 	 * it is used for debugging ubpf interpretter
 	 */
-	if (config.jitted) {
-		ubpf_jit_fn fn = ubpf_compile(vm, &errmsg);
-		if (fn == NULL) {
-			ERROR("Failed to compile: %s\n", errmsg);
-			free(errmsg);
-			return 1;
-		}
-		/* dump the jitted program */
-		/* unsigned int size = 0; */
-		/* uint8_t *b = ubpf_dump_jitted_fn(vm, &size); */
-		/* for (int i = 0; i < size; i++) { */
-		/* 	if (i % 16 == 0) */
-		/* 		printf("\n"); */
-		/* 	printf("%.2x ", b[i]); */
-		/* } */
-		/* printf("\n"); */
-	}
+	/* if (config.jitted) { */
+	/* 	ubpf_jit_fn fn = ubpf_compile(vm, &errmsg); */
+	/* 	if (fn == NULL) { */
+	/* 		ERROR("Failed to compile: %s\n", errmsg); */
+	/* 		free(errmsg); */
+	/* 		return 1; */
+	/* 	} */
+	/* 	dump the jitted program */
+	/* 	unsigned int size = 0; */
+	/* 	uint8_t *b = ubpf_dump_jitted_fn(vm, &size); */
+	/* 	for (int i = 0; i < size; i++) { */
+	/* 		if (i % 16 == 0) */
+	/* 			printf("\n"); */
+	/* 		printf("%.2x ", b[i]); */
+	/* 	} */
+	/* 	printf("\n"); */
+	/* } */
 	return 0;
 }
 
