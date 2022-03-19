@@ -7,6 +7,7 @@ curdir=`realpath $curdir`
 loader="$curdir/bin/loader"
 servant="$curdir/../../src/servant"
 queue=0
+ring_size=4096
 
 usage() {
 	echo "$0 <exp_mode> <binary_object>"
@@ -31,7 +32,7 @@ run_ubpf() {
 	make UBPF=1
 	sudo taskset -c $queue $servant --busypoll --xdp-prog "$curdir/bin/xdp.o" \
 		--map xsks_map --map tput \
-		--rx-size 4096 --tx-size 4096 \
+		--rx-size $ring_size --tx-size $ring_size \
 		--batch-size 64 \
 		$device $queue $1
 }
@@ -45,7 +46,7 @@ run_state_overhead_test() {
 	sleep 1
 	sudo taskset -c $queue $servant --busypoll --xdp-prog "$curdir/bin/xdp.o" \
 		--map xsks_map --map tput \
-		--rx-size 4096 --tx-size 4096 \
+		--rx-size $ring_size --tx-size $ring_size \
 		--batch-size 64 \
 		$device $queue $2
 }

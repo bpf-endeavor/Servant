@@ -1,5 +1,5 @@
 #include "general_header.h"
-#define REPEAT 2
+#define REPEAT 64
 #ifdef ISUBPF
 sinline int bpf_prog(CONTEXT *ctx);
 /**
@@ -24,11 +24,13 @@ int bpf_prog(CONTEXT *ctx)
 	struct iphdr *ip = (struct iphdr *)(eth + 1);
 	if (out_of_pkt(ip, data_end))
 		return XDP_DROP;
-	unsigned int c = (unsigned int)(long)ctx->data;
-	for (int i = 0; i < REPEAT; i++) {
-		c++;
-	}
-	ip->tos = c % 8;
+	unsigned int c = ip->tos + 1;
+/* #pragma clang loop unroll(disable) */
+	/* for (int i = 0; i < REPEAT; i++) { */
+	/* 	if (i % 2 == 0) */
+	/* 		c; */
+	/* } */
+	ip->tos = c;
 	INC_TPUT;
 	return XDP_DROP;
 }

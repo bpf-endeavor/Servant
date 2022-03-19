@@ -1,4 +1,11 @@
+/**
+ * Description:
+ * This benchmark test throughput of `memcpy` in XDP and uBPF virtual machine.
+ * */
+
 #include "general_header.h"
+
+/* #define TEST_MYMEMCPY */
 
 #define CHUNK_SIZE sizeof(struct iphdr)
 
@@ -16,6 +23,7 @@ int batch_processing_entry(struct pktctxbatch *batch)
 }
 #endif
 
+#ifdef TEST_MYMEMCPY
 sinline void mymemcpy(void *dst, void *src, unsigned short size)
 {
 	short i = 0;
@@ -27,6 +35,7 @@ sinline void mymemcpy(void *dst, void *src, unsigned short size)
 		*(char *)(dst+i) = *(char *)(src+i);
 	}
 }
+#endif
 
 SEC("prog")
 /* Entry of XDP program */
@@ -43,7 +52,6 @@ int bpf_prog(CONTEXT *ctx)
 	int i = 0;
 	int *value = NULL;
 	const unsigned int zero = 0;
-
 	eth = data;
 	if (out_of_pkt(eth, data_end))
 		return XDP_DROP;
@@ -55,23 +63,21 @@ int bpf_prog(CONTEXT *ctx)
 		return XDP_DROP;
 	if (((void *)udp) + CHUNK_SIZE > data_end)
 		return XDP_DROP;
-
-	/* for (i = 0; i < 64; i++) { */
-	/* 	memcpy(udp, ip, CHUNK_SIZE); */
-	/* 	memcpy(ip, udp, CHUNK_SIZE); */
-	/* } */
-
+#ifndef TEST_MYMEMCPY
+	for (i = 0; i < 64; i++) {
+		memcpy(udp, ip, CHUNK_SIZE);
+		udp->len += 1;
+		memcpy(ip, udp, CHUNK_SIZE);
+	}
+#else
 	for (i = 0; i < 64; i++) {
 		mymemcpy(udp, ip, CHUNK_SIZE);
+		udp->len += 1;
 		mymemcpy(ip, udp, CHUNK_SIZE);
 	}
-
-	/* memcpy(udp, ip, CHUNK_SIZE); */
-	/* mymemcpy(udp, ip, CHUNK_SIZE); */
-
+#endif
 	value = LOOKUP(tput, &zero);
 	if (value)
 		*value += 1;
 	return XDP_DROP;
-	// return XDP_TX;
 }
