@@ -7,7 +7,7 @@ curdir=`realpath $curdir`
 loader="$curdir/bin/loader"
 servant="$curdir/../../src/servant"
 queue=0
-ring_size=4096
+ring_size=512
 
 usage() {
 	echo "$0 <exp_mode> <binary_object>"
@@ -16,7 +16,18 @@ usage() {
 	echo "* exp_mode: xdp | ubpf"
 }
 
+turn_off_busypolling() {
+	echo 0 | sudo tee /sys/class/net/$device/napi_defer_hard_irqs
+	echo 0 | sudo tee /sys/class/net/$device/gro_flush_timeout
+}
+
+turn_on_busypolling() {
+	echo 2 | sudo tee /sys/class/net/$device/napi_defer_hard_irqs
+	echo 200000 | sudo tee /sys/class/net/$device/gro_flush_timeout
+}
+
 run_xdp() {
+	turn_off_busypolling
 	if [ -f $1 ]; then
 		rm $1
 	fi
@@ -25,6 +36,7 @@ run_xdp() {
 }
 
 run_ubpf() {
+	turn_on_busypolling
 	rm $curdir/bin/xdp.o
 	if [ -f $1 ]; then
 		rm $1
