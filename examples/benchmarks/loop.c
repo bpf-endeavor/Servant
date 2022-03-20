@@ -1,5 +1,7 @@
 #include "general_header.h"
-#define REPEAT 64
+
+#define REPEAT 16
+
 #ifdef ISUBPF
 sinline int bpf_prog(CONTEXT *ctx);
 /**
@@ -14,6 +16,10 @@ int batch_processing_entry(struct pktctxbatch *batch)
 }
 #endif
 
+SEC("prog")
+#ifdef ISUBPF
+sinline
+#endif
 int bpf_prog(CONTEXT *ctx)
 {
 	void *data = (void *)(long)ctx->data;
@@ -25,12 +31,14 @@ int bpf_prog(CONTEXT *ctx)
 	if (out_of_pkt(ip, data_end))
 		return XDP_DROP;
 	unsigned int c = ip->tos + 1;
-/* #pragma clang loop unroll(disable) */
-	/* for (int i = 0; i < REPEAT; i++) { */
-	/* 	if (i % 2 == 0) */
-	/* 		c; */
-	/* } */
+	for (int i = 0; i < REPEAT; i++) {
+		c++;
+		if (c % 7 == 0) {
+			c &= 0xff;
+			c *= 2;
+		}
+	}
 	ip->tos = c;
-	INC_TPUT;
+	/* INC_TPUT; */
 	return XDP_DROP;
 }

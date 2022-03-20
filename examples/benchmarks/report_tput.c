@@ -31,6 +31,8 @@ int main(int argc, char *argv[])
 	int map_fd = 0;
 	int found = 0;
 	const int zero = 0;
+	/* const int one = 1; */
+	/* const int two = 2; */
 
 	long lastReport = 0;
 	long curReport = 0;
@@ -39,6 +41,11 @@ int main(int argc, char *argv[])
 	uint64_t delta = 0;
 	long value = 0;
 	float tput = 0.0f;
+
+	/* long fails; */
+	/* long xdp_rx; */
+	/* long xdp_rx_prev = 0; */
+	/* float xdp_tput = 0.0f; */
 
 	// Find the map
 	while (!ret) {
@@ -82,6 +89,24 @@ int main(int argc, char *argv[])
 		tput = (curReport - lastReport) * 1000000000L/ (float)delta;
 		lastTs = now;
 		lastReport = curReport;
+
+		/* if (bpf_map_lookup_elem(map_fd, &one, &value)) { */
+		/* 	/1* printf("Failed to lookup for fails\n"); *1/ */
+		/* 	fails = 0; */
+		/* } */
+		/* fails = value; */
+
+		/* if (bpf_map_lookup_elem(map_fd, &two, &value)) { */
+		/* 	/1* printf("Failed to lookup for fails\n"); *1/ */
+		/* 	xdp_rx = 0; */
+		/* } */
+		/* xdp_rx = value; */
+		/* xdp_tput = (xdp_rx - xdp_rx_prev) * 1000000000L / (float)delta; */
+		/* xdp_rx_prev = xdp_rx; */
+
+		/* printf("tput: %.2f [xdp:%.2f] (fails: %ld)\n", tput, xdp_tput, */
+		/* 		fails); */
+
 		printf("tput: %.2f\n", tput);
 	}
 	return 0;

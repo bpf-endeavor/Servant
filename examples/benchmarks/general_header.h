@@ -32,7 +32,7 @@ struct {
 	__uint(type, BPF_MAP_TYPE_ARRAY);
 	__type(key, unsigned int);
 	__type(value, long);
-	__uint(max_entries, 1);
+	__uint(max_entries, 3);
 	__uint(map_flags, BPF_F_MMAPABLE);
 } tput SEC(".maps");
 

@@ -76,8 +76,9 @@ int bpf_prog(CONTEXT *ctx)
 		mymemcpy(ip, udp, CHUNK_SIZE);
 	}
 #endif
-	value = LOOKUP(tput, &zero);
-	if (value)
-		*value += 1;
+	/* value = LOOKUP(tput, &zero); */
+	/* value = lookup_fast(1, &zero); */
+	/* if (value) */
+	/* 	*value += 1; */
 	return XDP_DROP;
 }
