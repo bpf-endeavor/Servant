@@ -192,7 +192,29 @@ ubpf_map_lookup_elem_kern(char *map_name, const void *key_ptr)
 	int ret = bpf_map_lookup_elem(fd, key_ptr, buffer);
 	if (ret != 0) {
 		/* DEBUG("Item not found\n"); */
-		free(buffer);
+		/* free(buffer); */
+		return NULL;
+	}
+	return buffer;
+}
+
+void *
+ubpf_map_lookup_elem_kern_fast(int index, const void *key_ptr)
+{
+	if (mmap_area[index] != NULL) {
+		// if memory mapped then key is integer (?!)
+		return mmap_area[index] + (map_value_size[index] * (*(uint32_t *)key_ptr));
+	}
+	void *buffer = map_value_pool[index];
+	if (!buffer) {
+		ERROR("Failed to allocate\n");
+		return NULL;
+	}
+	// copies value form kernel to the buffer
+	int ret = bpf_map_lookup_elem(map_fds[index], key_ptr, buffer);
+	if (ret != 0) {
+		/* DEBUG("Item not found\n"); */
+		/* free(buffer); */
 		return NULL;
 	}
 	return buffer;

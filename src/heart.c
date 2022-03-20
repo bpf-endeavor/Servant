@@ -5,6 +5,7 @@
 #include <stdlib.h> // exit
 #include <sys/socket.h> // sendto
 #include <errno.h>
+#include <poll.h>
 #include "config.h"
 #include "heart.h"
 #include "brain.h"
@@ -29,7 +30,7 @@
 /* } */
 
 
-static void kick_tx(struct xsk_socket_info *xsk)
+static inline void kick_tx(struct xsk_socket_info *xsk)
 {
 	int ret;
 
@@ -103,8 +104,24 @@ poll_rx_queue(struct xsk_socket_info *xsk, struct xdp_desc **batch,
     uint32_t cnt)
 {
     uint32_t i;
-    uint32_t idx_rx = 0;
-    const uint32_t rcvd = xsk_ring_cons__peek(&xsk->rx, cnt, &idx_rx);
+    uint32_t idx_rx;
+    uint32_t rcvd;
+
+	/* const int poll_timeout = 1000; */
+	/* const int num_socks = 1; */
+	/* struct pollfd fds[1] = {}; */
+	/* int ret; */
+
+	/* for (i = 0; i < num_socks; i++) { */
+	/* 	/1* fds[i].fd = xsk_socket__fd(xsks[i]->xsk); *1/ */
+	/* 	fds[i].fd = xsk_socket__fd(xsk->xsk); */
+	/* 	fds[i].events = POLLIN; */
+	/* } */
+	/* /1* if (opt_poll) { *1/ */
+	/* 	ret = poll(fds, num_socks, poll_timeout); */
+	/* /1* } *1/ */
+
+    rcvd = xsk_ring_cons__peek(&xsk->rx, cnt, &idx_rx);
     if (!rcvd) {
         /* // There is no packets */
         if (config.busy_poll ||
@@ -178,9 +195,10 @@ uint32_t tx(struct xsk_socket_info *xsk, struct xdp_desc **batch, uint32_t cnt)
     ret = xsk_ring_prod__reserve(&xsk->tx, cnt, &idx_target);
     if (ret != cnt) {
         if (ret < 0) {
-            ERROR("Failed to reserve packets on fill queue!\n");
+            ERROR("Failed to reserve packets on tx queue!\n");
             exit(EXIT_FAILURE);
         }
+	DEBUG("FAILED to reserve packets on tx queue\n");
         return 0;
     }
 
@@ -193,6 +211,7 @@ uint32_t tx(struct xsk_socket_info *xsk, struct xdp_desc **batch, uint32_t cnt)
     }
     xsk->outstanding_tx += cnt;
     xsk_ring_prod__submit(&xsk->tx, cnt);
+    kick_tx(xsk);
     return cnt;
 }
 
@@ -292,11 +311,14 @@ apply_mix_action(struct xsk_socket_info *xsk, struct xdp_desc **batch,
 		}
 	}
 
-	xsk->outstanding_tx += action_count[1];
 	// Submit queue
 	for (int i = 0; i < 2; i++) {
 		if (reserved[i] > 0)
 			xsk_ring_prod__submit(rings[i], action_count[i]);
+	}
+	if (action_count[1]) {
+		xsk->outstanding_tx += action_count[1];
+		kick_tx(xsk);
 	}
 }
 

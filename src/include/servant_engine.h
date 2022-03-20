@@ -44,6 +44,7 @@ typedef char              int8_t;
 
 // Map access functions
 static void *(*lookup)(char *name, const void *key) = (void *)1;
+static void *(*lookup_fast)(int index, const void *key_ptr) = (void *)10;
 static int (*free_elem)(void *ptr) = (void *)3;
 /* For debugging */
 static void (*ubpf_print)(char *fmt, ...) = (void *)4;

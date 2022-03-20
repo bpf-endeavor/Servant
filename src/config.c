@@ -36,7 +36,7 @@ void parse_args(int argc, char *argv[])
     config.headroom = 256;
     config.busy_poll = 0;
     config.busy_poll_duration = 20;
-    config.batch_size = 32;
+    config.batch_size = 64;
     config.terminate = 0;
     config.rx_size = 2048;
     config.tx_size = 2048;

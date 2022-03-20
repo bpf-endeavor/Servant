@@ -61,6 +61,7 @@ register_engine_functions(struct ubpf_vm *vm)
 	ubpf_register(vm, 1, "ubpf_map_lookup_elem_kern", ubpf_map_lookup_elem_kern);
 	ubpf_register(vm, 2, "ubpf_map_update_elem_kern", ubpf_map_update_elem_kern);
 	ubpf_register(vm, 3, "ubpf_map_elem_release", ubpf_map_elem_release);
+	ubpf_register(vm, 10, "ubpf_map_lookup_elem_kern_fast", ubpf_map_lookup_elem_kern_fast);
 	/* printf for debugging */
 	ubpf_register(vm, 4, "printf", printf);
 	/* get the CPU timestamp counter */
@@ -73,8 +74,8 @@ register_engine_functions(struct ubpf_vm *vm)
 	/* get time in ns */
 	ubpf_register(vm, 9, "ubpf_time_get_ns", ubpf_time_get_ns);
 	/* unwind */
-	ubpf_register(vm, 10, "unwind", unwind);
-	ubpf_set_unwind_function_index(vm, 10);
+	ubpf_register(vm, 11, "unwind", unwind);
+	ubpf_set_unwind_function_index(vm, 11);
 }
 
 /**

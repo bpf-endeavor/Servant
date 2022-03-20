@@ -62,4 +62,7 @@ int setup_map_system(char *names[], int size);
  */
 DEPRECATED int setup_map_system_from_if_xdp(int ifindex);
 
+
+void * ubpf_map_lookup_elem_kern_fast(int index, const void *key_ptr);
+
 #endif
