@@ -1,6 +1,8 @@
 #include <linux/ipv6.h>
 #include "general_header.h"
 
+#define REPEAT 64
+
 #define IPV4_HDR_LEN_NO_OPT 20
 #define PCKT_FRAGMENTED 65343
 #define FURTHER_PROCESSING -1
@@ -189,7 +191,7 @@ int bpf_prog(CONTEXT *ctx)
 	__u32 vip_num;
 	__u32 mac_addr_pos = 0;
 	__u16 pkt_bytes;
-	for (int i = 0; i < 8; i++) {
+	for (int i = 0; i < REPEAT; i++) {
 		action = process_l3_headers(
 				&pckt, &protocol, off, &pkt_bytes, data, data_end,
 				is_ipv6);

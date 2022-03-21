@@ -1,6 +1,6 @@
 #include "general_header.h"
 
-#define REPEAT 16
+#define REPEAT 64
 
 #ifdef ISUBPF
 sinline int bpf_prog(CONTEXT *ctx);
@@ -31,6 +31,7 @@ int bpf_prog(CONTEXT *ctx)
 	if (out_of_pkt(ip, data_end))
 		return XDP_DROP;
 	unsigned int c = ip->tos + 1;
+/* #pragma clang loop unroll(disable) */
 	for (int i = 0; i < REPEAT; i++) {
 		c++;
 		if (c % 7 == 0) {
