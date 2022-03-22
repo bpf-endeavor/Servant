@@ -16,7 +16,7 @@
 #include <time.h>
 
 /* #define SHOW_THROUGHPUT */
-#define VM_CALL_BATCHING
+/* #define VM_CALL_BATCHING */
 
 /* #include "duration_hist.h" */
 
@@ -138,7 +138,7 @@ poll_rx_queue(struct xsk_socket_info *xsk, struct xdp_desc **batch,
         idx_rx++;
         batch[i] = desc;
     }
-    xsk_ring_cons__release(&xsk->rx, rcvd);
+    /* xsk_ring_cons__release(&xsk->rx, rcvd); */
     /* xsk->ring_stats.rx_npkts += rcvd; */
     return rcvd;
 }
@@ -175,6 +175,7 @@ uint32_t drop(struct xsk_socket_info *xsk, struct xdp_desc **batch, uint32_t cnt
         idx_target++;
     }
     xsk_ring_prod__submit(&xsk->umem->fq, cnt);
+    xsk_ring_cons__release(&xsk->rx, cnt);
     return cnt;
 }
 
@@ -212,7 +213,7 @@ uint32_t tx(struct xsk_socket_info *xsk, struct xdp_desc **batch, uint32_t cnt)
     }
     xsk->outstanding_tx += cnt;
     xsk_ring_prod__submit(&xsk->tx, cnt);
-    kick_tx(xsk);
+    xsk_ring_cons__release(&xsk->rx, cnt);
     return cnt;
 }
 
@@ -230,7 +231,6 @@ apply_action(struct xsk_socket_info *xsk, struct xdp_desc *desc, int action)
 			drop(xsk, &desc, 1);
 		}
 	} else if (action == PASS) {
-		ERROR("not expecting PASS\n");
 		/* Send to application using the interpose layer */
 		uint64_t addr = desc->addr;
 		addr = xsk_umem__add_offset_to_addr(addr);
@@ -320,13 +320,13 @@ apply_mix_action(struct xsk_socket_info *xsk, struct xdp_desc **batch,
 
 	// Submit queue
 	for (int i = 0; i < 2; i++) {
-		if (reserved[i] > 0)
+		if (reserved[i] > 0) {
 			xsk_ring_prod__submit(rings[i], action_count[i]);
+			xsk_ring_cons__release(&xsk->rx, action_count[i]);
+		}
 	}
 	if (action_count[1]) {
 		xsk->outstanding_tx += action_count[1];
-		kick_tx(xsk);
-		complete_tx(xsk);
 	}
 }
 

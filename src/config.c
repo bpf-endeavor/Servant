@@ -163,7 +163,7 @@ void parse_args(int argc, char *argv[])
     optind++;
 
     // How many descriptors are needed
-    config.num_frames = (config.rx_size + config.tx_size) * 6;
+    config.num_frames = (config.rx_size + config.tx_size) * 8;
 
     if(config.busy_poll){
         INFO("BUSY POLLING\n");
