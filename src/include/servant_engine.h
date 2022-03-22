@@ -31,12 +31,12 @@ typedef char              int8_t;
 #define ubpf_ntohs(x)		__builtin_bswap16(x)
 #define ubpf_htons(x)		__builtin_bswap16(x)
 #define ubpf_htonl(x)		__builtin_bswap32(x)
-#define bpf_ntohl(x)		__builtin_bswap32(x)
+#define ubpf_ntohl(x)		__builtin_bswap32(x)
 #elif defined(__BYTE_ORDER__) && defined(__ORDER_BIG_ENDIAN__) && \
 		__BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
 #define ubpf_ntohs(x)		(x)
 #define ubpf_htons(x)		(x)
-#define ubpf_nthol(x)		(x)
+#define ubpf_ntohl(x)		(x)
 #define ubpf_htonl(x)		(x)
 #else
 # error "Endianness detection needs to be set up for your compiler?!"
@@ -76,7 +76,6 @@ static uint64_t (*ubpf_time_get_ns)(void) = (void *)9;
 #ifndef NULL
 #define NULL 0
 #endif
-
 
 #include "packet_context.h"
 #include <ubpf_maps.h>

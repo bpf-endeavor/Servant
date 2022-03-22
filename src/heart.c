@@ -164,6 +164,7 @@ uint32_t drop(struct xsk_socket_info *xsk, struct xdp_desc **batch, uint32_t cnt
             ERROR("Failed to reserve packets on fill queue!\n");
             exit(EXIT_FAILURE);
         }
+	DEBUG("Failed to reserve packets on fill queue\n");
         return 0;
     }
 
@@ -189,7 +190,7 @@ uint32_t drop(struct xsk_socket_info *xsk, struct xdp_desc **batch, uint32_t cnt
  */
 uint32_t tx(struct xsk_socket_info *xsk, struct xdp_desc **batch, uint32_t cnt)
 {
-    uint32_t idx_target = 0;
+    uint32_t idx_target;
     uint32_t i;
     int ret;
     ret = xsk_ring_prod__reserve(&xsk->tx, cnt, &idx_target);
@@ -229,6 +230,7 @@ apply_action(struct xsk_socket_info *xsk, struct xdp_desc *desc, int action)
 			drop(xsk, &desc, 1);
 		}
 	} else if (action == PASS) {
+		ERROR("not expecting PASS\n");
 		/* Send to application using the interpose layer */
 		uint64_t addr = desc->addr;
 		addr = xsk_umem__add_offset_to_addr(addr);
@@ -243,7 +245,10 @@ apply_action(struct xsk_socket_info *xsk, struct xdp_desc *desc, int action)
 		// Free the AF_XDP descriptor
 		drop(xsk, &desc, 1);
 	} else {
-		drop(xsk, &desc, 1);
+		ret = drop(xsk, &desc, 1);
+		if (ret != 1) {
+			DEBUG("Failed to drop packet\n");
+		}
 	}
 }
 
@@ -271,6 +276,7 @@ apply_mix_action(struct xsk_socket_info *xsk, struct xdp_desc **batch,
 			action_count[1]++;
 		} else {
 			// not implemented yet
+			ERROR("action not found\n");
 			continue;
 		}
 	}
@@ -307,6 +313,7 @@ apply_mix_action(struct xsk_socket_info *xsk, struct xdp_desc **batch,
 			index_target[1]++;
 		} else {
 			// Not implemented
+			ERROR("placing descriptor action not found\n");
 			continue;
 		}
 	}
@@ -319,6 +326,7 @@ apply_mix_action(struct xsk_socket_info *xsk, struct xdp_desc **batch,
 	if (action_count[1]) {
 		xsk->outstanding_tx += action_count[1];
 		kick_tx(xsk);
+		complete_tx(xsk);
 	}
 }
 
