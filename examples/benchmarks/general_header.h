@@ -26,7 +26,11 @@
 #include <bpf/bpf_helpers.h>
 #include <bpf/bpf_endian.h>
 #include <string.h>
+
 #define CONTEXT struct xdp_md
+
+#define DUMP(x, args...) { const char fmt[] = x; \
+	bpf_trace_printk(fmt, sizeof(fmt), ##args); }
 
 struct {
 	__uint(type, BPF_MAP_TYPE_ARRAY);

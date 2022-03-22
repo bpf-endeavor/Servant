@@ -97,6 +97,15 @@ int main(int argc, char **argv)
 		}
 	}
 
+	// populate the program map for bpf_tail_call experiment
+	int prog_map_fd = bpf_object__find_map_fd_by_name(obj, "map_progs");
+	if (prog_map_fd > 0) {
+		const int zero = 0;
+		err = bpf_map_update_elem(prog_map_fd, &zero, &prog_fd, 0);
+		if (err)
+			printf("failed to insert program id to map_progs\n");
+	}
+
 	signal(SIGINT, int_exit);
 	signal(SIGTERM, int_exit);
 
