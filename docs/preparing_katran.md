@@ -208,7 +208,9 @@ the build system of this project.
 * Run servant:
 
 ```
-sudo taskset -c 0 ./servant --xdp-prog - --busypoll enp24s0f1 0 /media/disk/my/katran/_build/deps/bpfprog/bpf/ubpf.o
+sudo taskset -c 0 nice -n -20 \
+	./Servant/src/servant  --xdp-prog - --busypoll --rx-size 512 --tx-size 512 \
+	enp24s0f1 0 /media/disk/katran/_build/deps/bpfprog/bpf/ubpf.o
 ```
 
 * Run load generator on the other machine.
