@@ -157,7 +157,7 @@ poll_rx_queue(struct xsk_socket_info *xsk, struct xdp_desc **batch,
  * @return Number of packets placed into the fill queue. Zero if failed
  * otherwise it would be equal to cnt.
  */
-uint32_t drop(struct xsk_socket_info *xsk, struct xdp_desc **batch, uint32_t cnt)
+uint32_t drop(struct xsk_socket_info *xsk, struct xdp_desc **batch, const uint32_t cnt)
 {
     uint32_t idx_target = 0;
     uint32_t i;
@@ -390,19 +390,22 @@ pump_packets(struct xsk_socket_info *xsk, struct ubpf_vm *vm)
 			complete_tx(xsk);
 
 #ifdef USE_POLL
-		if (empty_rx > 50) {
+		if (empty_rx > 10) {
 			fds[0].fd = xsk_socket__fd(xsk->xsk);
 			fds[0].events = POLLIN; // POLLOUT |
-			ret = poll(fds, 1, 500);
+			ret = poll(fds, 1, 1000);
 			if (ret <= 0)
 				continue;
+			else
+				empty_rx = 0;
 		}
-		empty_rx = 0;
 #endif
 
 		rx = poll_rx_queue(xsk, batch, cnt);
 		if (!rx) {
+#ifdef USE_POLL
 			empty_rx++;
+#endif
 			continue;
 		}
 
