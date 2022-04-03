@@ -5,7 +5,6 @@
 #include <stdlib.h> // exit
 #include <sys/socket.h> // sendto
 #include <errno.h>
-#include <poll.h>
 #include "config.h"
 #include "heart.h"
 #include "brain.h"
@@ -15,8 +14,13 @@
 
 #include <time.h>
 
+#define USE_POLL
 /* #define SHOW_THROUGHPUT */
 /* #define VM_CALL_BATCHING */
+
+#ifdef USE_POLL
+#include <poll.h>
+#endif
 
 /* #include "duration_hist.h" */
 
@@ -348,6 +352,7 @@ pump_packets(struct xsk_socket_info *xsk, struct ubpf_vm *vm)
 	uint64_t rprt_ts = spec.tv_sec * 1000000 + spec.tv_nsec / 1000;
 #endif
 
+	int ret;
 	uint32_t rx;
 	const uint32_t cnt = config.batch_size;
 	struct xdp_desc *batch[cnt];
@@ -359,6 +364,11 @@ pump_packets(struct xsk_socket_info *xsk, struct ubpf_vm *vm)
 	pkt_batch.rets = _ret_arr;
 #else
 	struct pktctx pktctx;
+#endif
+
+#ifdef USE_POLL
+	struct pollfd fds[1] = {};
+	uint32_t empty_rx = 0;
 #endif
 
 	if (!config.jitted) {
@@ -379,9 +389,22 @@ pump_packets(struct xsk_socket_info *xsk, struct ubpf_vm *vm)
 		if (xsk->outstanding_tx > 0)
 			complete_tx(xsk);
 
+#ifdef USE_POLL
+		if (empty_rx > 50) {
+			fds[0].fd = xsk_socket__fd(xsk->xsk);
+			fds[0].events = POLLIN; // POLLOUT |
+			ret = poll(fds, 1, 500);
+			if (ret <= 0)
+				continue;
+		}
+		empty_rx = 0;
+#endif
+
 		rx = poll_rx_queue(xsk, batch, cnt);
-		if (!rx)
+		if (!rx) {
+			empty_rx++;
 			continue;
+		}
 
 #ifdef VM_CALL_BATCHING
 		/* Perpare batch */
@@ -419,7 +442,7 @@ pump_packets(struct xsk_socket_info *xsk, struct ubpf_vm *vm)
 			pktctx.pkt_len = ctx_len;
 			pktctx.trim_head = 0;
 			/* uint64_t start_ts = readTSC(); */
-			int ret = fn(&pktctx, sizeof(pktctx));
+			ret = fn(&pktctx, sizeof(pktctx));
 			/* uint64_t end_ts = readTSC(); */
 			/* calc_latency_from_ts(start_ts, end_ts); */
 			batch[i]->len = pktctx.pkt_len;
