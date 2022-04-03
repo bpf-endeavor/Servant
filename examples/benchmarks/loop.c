@@ -2,19 +2,19 @@
 
 #define REPEAT 64
 
-#ifdef ISUBPF
-sinline int bpf_prog(CONTEXT *ctx);
-/**
- * Entry of the uBPF program
- */
-int batch_processing_entry(struct pktctxbatch *batch)
-{
-	for (int i = 0; i < batch->cnt; i++) {
-		batch->rets[i] = bpf_prog(&batch->pkts[i]);
-	}
-	return 0;
-}
-#endif
+// #ifdef ISUBPF
+// sinline int bpf_prog(CONTEXT *ctx);
+// /**
+//  * Entry of the uBPF program
+//  */
+// int batch_processing_entry(struct pktctxbatch *batch)
+// {
+// 	for (int i = 0; i < batch->cnt; i++) {
+// 		batch->rets[i] = bpf_prog(&batch->pkts[i]);
+// 	}
+// 	return 0;
+// }
+// #endif
 
 SEC("prog")
 #ifdef ISUBPF
