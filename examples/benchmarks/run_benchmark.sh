@@ -50,6 +50,7 @@ run_ubpf() {
 }
 
 run_state_overhead_test() {
+	turn_on_busypolling
 	rm $curdir/bin/xdp.o
 	if [ -f $2 ]; then
 		rm $2

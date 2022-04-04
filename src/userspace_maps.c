@@ -177,6 +177,16 @@ int launch_userspace_maps_server(struct server_conf *config)
 		ubpf_update_map(m, &key, &val);
 	}
 
+	/* For hash_map bench */
+	m = ubpf_select_map("hash_map", config->vm);
+	if (m) {
+		struct { char obj[8]; } key, val;
+		for (int i = 0; i < 128; i++) {
+			*(int *)(&key.obj) = i;
+			ubpf_update_map(m, &key, &val);
+		}
+	}
+
 	/* for Katran */
 	const int vip_num = 0;
 	struct real_definition real = {

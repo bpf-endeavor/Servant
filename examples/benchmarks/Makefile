@@ -1,7 +1,7 @@
 OUTDIR = ./bin/
 KERN_OBJECTS = adjust_pkt_size.o echo.o memcpy.o xdp.o test_inc_pkt_head.o \
 			state_overhead.o payload.o loop.o packet_processing.o \
-			tail_call.o
+			tail_call.o hash_map.o
 USER_OBJECTS = report_tput loader
 
 ifdef XDP

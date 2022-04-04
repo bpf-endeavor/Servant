@@ -15,6 +15,8 @@
 #include <bpf/bpf.h>
 #include <bpf/libbpf.h>
 
+#include "map_detail.h"
+
 static int ifindex;
 static __u32 xdp_flags = XDP_FLAGS_UPDATE_IF_NOEXIST;
 static __u32 prog_id;
@@ -22,6 +24,32 @@ static __u32 prog_id;
 static void wait(void);
 static void usage(const char *prog);
 static void int_exit(int sig);
+
+static void try_populate_maps(struct bpf_object *obj, int prog_fd)
+{
+	int err;
+	int map_fd;
+	// populate the program map for bpf_tail_call experiment
+	map_fd = bpf_object__find_map_fd_by_name(obj, "map_progs");
+	if (map_fd > 0) {
+		const int zero = 0;
+		err = bpf_map_update_elem(map_fd, &zero, &prog_fd, 0);
+		if (err)
+			printf("failed to insert program id to map_progs\n");
+	}
+	// populate hash_map for hash_map experiment
+	map_fd = bpf_object__find_map_fd_by_name(obj, "hash_map");
+	if (map_fd > 0) {
+		struct keyobj key;
+		struct valobj val = {};
+		for (int i = 0; i < 128; i++) {
+			*(int *)(&key.obj) = i;
+			err = bpf_map_update_elem(map_fd, &key, &val, 0);
+			if (err)
+				printf("failed to update hash_map element\n");
+		}
+	}
+}
 
 int main(int argc, char **argv)
 {
@@ -97,14 +125,7 @@ int main(int argc, char **argv)
 		}
 	}
 
-	// populate the program map for bpf_tail_call experiment
-	int prog_map_fd = bpf_object__find_map_fd_by_name(obj, "map_progs");
-	if (prog_map_fd > 0) {
-		const int zero = 0;
-		err = bpf_map_update_elem(prog_map_fd, &zero, &prog_fd, 0);
-		if (err)
-			printf("failed to insert program id to map_progs\n");
-	}
+	try_populate_maps(obj, prog_fd);
 
 	signal(SIGINT, int_exit);
 	signal(SIGTERM, int_exit);
