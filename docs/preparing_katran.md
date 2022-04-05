@@ -231,7 +231,7 @@ Then run it with Servant:
 * Enable bussypolling by running the configuration script.
 
 ```bash
-sudo taskset -c 0 ./servant --busypoll enp24s0f1 0 /users/farbod/katran_userspace/balancer_kern.o
+sudo nice -n -20 taskset -c 0 ./servant --rx-size 512 --tx-size 512 --busypoll enp24s0f1 0 /users/farbod/katran_userspace/balancer_kern.o
 ```
 
 > At the time of writing this description, the Katran configuration is hardcoded in Servant startup path. It may change in future.
