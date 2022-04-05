@@ -8,7 +8,7 @@
 /* #define TEST_MYMEMCPY */
 
 #define CHUNK_SIZE sizeof(struct iphdr)
-#define REPEAT 24
+#define REPEAT 32
 
 // #ifdef ISUBPF
 // sinline int bpf_prog(CONTEXT *ctx);

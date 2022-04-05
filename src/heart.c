@@ -159,6 +159,7 @@ poll_rx_queue(struct xsk_socket_info *xsk, struct xdp_desc **batch,
  * @return Number of packets placed into the fill queue. Zero if failed
  * otherwise it would be equal to cnt.
  */
+static inline
 uint32_t drop(struct xsk_socket_info *xsk, struct xdp_desc **batch, const uint32_t cnt)
 {
     uint32_t idx_target = 0;
@@ -223,7 +224,7 @@ uint32_t tx(struct xsk_socket_info *xsk, struct xdp_desc **batch, uint32_t cnt)
     return cnt;
 }
 
-void
+static inline void
 apply_action(struct xsk_socket_info *xsk, struct xdp_desc *desc, int action)
 {
 	/* DEBUG("action: %d\n", action); */
