@@ -251,7 +251,7 @@ int launch_userspace_maps_server(struct server_conf *config)
 		struct ctl_value ctl_val = {
 			/* .mac = {0x3c,0xfd,0xfe,0x56,0x05,0x42}, */
 			/* .mac = {0x3c,0xfd,0xfe,0x56,0x12,0x82}, // Gateway or the other machines mac */
-			.mac = {0x3c,0xfd,0xfe,0x56,0x02,0x42}, // Gateway or the other machines mac
+			.mac = {0x3c,0xfd,0xfe,0x55,0xff,0x62}, // Gateway or the other machines mac
 		};
 		ubpf_update_map(m, &ctl_array_index, &ctl_val);
 		INFO("Updated default mac address\n");

@@ -8,20 +8,21 @@
 /* #define TEST_MYMEMCPY */
 
 #define CHUNK_SIZE sizeof(struct iphdr)
+#define REPEAT 24
 
-#ifdef ISUBPF
-sinline int bpf_prog(CONTEXT *ctx);
-/**
- * Entry of the uBPF program
- */
-int batch_processing_entry(struct pktctxbatch *batch)
-{
-	for (int i = 0; i < batch->cnt; i++) {
-		batch->rets[i] = bpf_prog(&batch->pkts[i]);
-	}
-	return 0;
-}
-#endif
+// #ifdef ISUBPF
+// sinline int bpf_prog(CONTEXT *ctx);
+// /**
+//  * Entry of the uBPF program
+//  */
+// int batch_processing_entry(struct pktctxbatch *batch)
+// {
+// 	for (int i = 0; i < batch->cnt; i++) {
+// 		batch->rets[i] = bpf_prog(&batch->pkts[i]);
+// 	}
+// 	return 0;
+// }
+// #endif
 
 #ifdef TEST_MYMEMCPY
 sinline void mymemcpy(void *dst, void *src, unsigned short size)
@@ -39,9 +40,6 @@ sinline void mymemcpy(void *dst, void *src, unsigned short size)
 
 SEC("prog")
 /* Entry of XDP program */
-#ifdef ISUBPF
-sinline
-#endif
 int bpf_prog(CONTEXT *ctx)
 {
 	void* data = (void *)(long)ctx->data;
@@ -53,24 +51,20 @@ int bpf_prog(CONTEXT *ctx)
 	int *value = NULL;
 	const unsigned int zero = 0;
 	eth = data;
-	if (out_of_pkt(eth, data_end))
-		return XDP_DROP;
 	ip = (struct iphdr *)(eth + 1);
-	if (out_of_pkt(ip, data_end))
-		return XDP_DROP;
 	udp = (struct udphdr *)(ip + 1);
 	if (out_of_pkt(udp, data_end))
 		return XDP_DROP;
 	if (((void *)udp) + CHUNK_SIZE > data_end)
 		return XDP_DROP;
 #ifndef TEST_MYMEMCPY
-	for (i = 0; i < 64; i++) {
+	for (i = 0; i < REPEAT; i++) {
 		memcpy(udp, ip, CHUNK_SIZE);
 		udp->len += 1;
 		memcpy(ip, udp, CHUNK_SIZE);
 	}
 #else
-	for (i = 0; i < 64; i++) {
+	for (i = 0; i < REPEAT; i++) {
 		mymemcpy(udp, ip, CHUNK_SIZE);
 		udp->len += 1;
 		mymemcpy(ip, udp, CHUNK_SIZE);

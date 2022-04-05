@@ -14,6 +14,8 @@
 
 #include <time.h>
 
+#include "baked_in/memcpy.h"
+
 #define USE_POLL
 /* #define SHOW_THROUGHPUT */
 /* #define VM_CALL_BATCHING */
@@ -390,7 +392,7 @@ pump_packets(struct xsk_socket_info *xsk, struct ubpf_vm *vm)
 			complete_tx(xsk);
 
 #ifdef USE_POLL
-		if (empty_rx > 10) {
+		if (empty_rx >= 8) {
 			fds[0].fd = xsk_socket__fd(xsk->xsk);
 			fds[0].events = POLLIN; // POLLOUT |
 			ret = poll(fds, 1, 1000);
@@ -408,6 +410,12 @@ pump_packets(struct xsk_socket_info *xsk, struct ubpf_vm *vm)
 #endif
 			continue;
 		}
+		/* if (rx < 64) { */
+		/* 	for (int i = 0; i < 8; i++) { */
+		/* 		int tmp = poll_rx_queue(xsk, batch, cnt); */
+		/* 		rx += tmp; */
+		/* 	} */
+		/* } */
 
 #ifdef VM_CALL_BATCHING
 		/* Perpare batch */
@@ -445,7 +453,10 @@ pump_packets(struct xsk_socket_info *xsk, struct ubpf_vm *vm)
 			pktctx.pkt_len = ctx_len;
 			pktctx.trim_head = 0;
 			/* uint64_t start_ts = readTSC(); */
+
 			ret = fn(&pktctx, sizeof(pktctx));
+			/* ret = memcpy_bpf_prog(&pktctx); */
+
 			/* uint64_t end_ts = readTSC(); */
 			/* calc_latency_from_ts(start_ts, end_ts); */
 			batch[i]->len = pktctx.pkt_len;
