@@ -38,8 +38,8 @@ void parse_args(int argc, char *argv[])
     config.busy_poll_duration = 20;
     config.batch_size = 64;
     config.terminate = 0;
-    config.rx_size = 2048;
-    config.tx_size = 2048;
+    config.rx_size = 512;
+    config.tx_size = 512;
     config.copy_mode = XDP_ZEROCOPY;
     config.xdp_mode = XDP_FLAGS_DRV_MODE;
     config.jitted = 1;
