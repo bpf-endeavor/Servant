@@ -21,13 +21,13 @@ struct bpf_map_def SEC("maps") xsks_map = {
 };
 
 /* This map is for keeping track of throughput (used with report_tput binary) */
-struct {
-	__uint(type, BPF_MAP_TYPE_ARRAY);
-	__type(key, unsigned int);
-	__type(value, long);
-	__uint(max_entries, 3);
-	__uint(map_flags, BPF_F_MMAPABLE);
-} tput SEC(".maps");
+/* struct { */
+/* 	__uint(type, BPF_MAP_TYPE_ARRAY); */
+/* 	__type(key, unsigned int); */
+/* 	__type(value, long); */
+/* 	__uint(max_entries, 3); */
+/* 	__uint(map_flags, BPF_F_MMAPABLE); */
+/* } tput SEC(".maps"); */
 
 SEC("prog")
 int _prog(struct xdp_md *ctx)

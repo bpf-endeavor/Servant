@@ -1,7 +1,7 @@
 #include <linux/ipv6.h>
 #include "general_header.h"
 
-#define REPEAT 64
+#define REPEAT 256
 
 #define IPV4_HDR_LEN_NO_OPT 20
 #define PCKT_FRAGMENTED 65343
@@ -55,23 +55,23 @@ struct vip_definition {
 
 // result of vip's lookup
 struct vip_meta {
-  __u32 flags;
-  __u32 vip_num;
+	__u32 flags;
+	__u32 vip_num;
 };
 
-#ifdef ISUBPF
-sinline int bpf_prog(CONTEXT *ctx);
-/**
- * Entry of the uBPF program
- */
-int batch_processing_entry(struct pktctxbatch *batch)
-{
-	for (int i = 0; i < batch->cnt; i++) {
-		batch->rets[i] = bpf_prog(&batch->pkts[i]);
-	}
-	return 0;
-}
-#endif
+// #ifdef ISUBPF
+// sinline int bpf_prog(CONTEXT *ctx);
+// /**
+//  * Entry of the uBPF program
+//  */
+// int batch_processing_entry(struct pktctxbatch *batch)
+// {
+// 	for (int i = 0; i < batch->cnt; i++) {
+// 		batch->rets[i] = bpf_prog(&batch->pkts[i]);
+// 	}
+// 	return 0;
+// }
+// #endif
 
 __attribute__((__always_inline__)) static inline int process_l3_headers(
 		struct packet_description* pckt,
@@ -188,8 +188,8 @@ int bpf_prog(CONTEXT *ctx)
 	}
 
 	int action;
-	__u32 vip_num;
-	__u32 mac_addr_pos = 0;
+	/* __u32 vip_num; */
+	/* __u32 mac_addr_pos = 0; */
 	__u16 pkt_bytes;
 	for (int i = 0; i < REPEAT; i++) {
 		action = process_l3_headers(
@@ -210,6 +210,8 @@ int bpf_prog(CONTEXT *ctx)
 		}
 	}
 
-	/* INC_TPUT; */
+#ifdef ISXDP
+	INC_TPUT;
+#endif
 	return XDP_DROP;
 }
