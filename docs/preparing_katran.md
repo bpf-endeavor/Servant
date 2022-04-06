@@ -208,8 +208,10 @@ the build system of this project.
 * Run servant:
 
 ```
-sudo taskset -c 0 nice -n -20 \
-	./Servant/src/servant  --xdp-prog - --busypoll --rx-size 512 --tx-size 512 \
+sudo taskset -c 0 nice -n -20 ./Servant/src/servant  \
+	--xdp-prog - --busypoll --rx-size 512 --tx-size 512 \
+	--map ctl_array --map ch_rings --map reals --map stats \
+	--map reals_stats --map xsks_map \
 	enp24s0f1 0 /media/disk/katran/_build/deps/bpfprog/bpf/ubpf.o
 ```
 
