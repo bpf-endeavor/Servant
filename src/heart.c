@@ -14,10 +14,10 @@
 
 #include <time.h>
 
-#include "baked_in/memcpy.h"
+#include "baked_in/internal_benchmarks.h"
 
 #define USE_POLL
-/* #define SHOW_THROUGHPUT */
+#define SHOW_THROUGHPUT
 /* #define VM_CALL_BATCHING */
 
 #ifdef USE_POLL
@@ -457,6 +457,7 @@ pump_packets(struct xsk_socket_info *xsk, struct ubpf_vm *vm)
 
 			ret = fn(&pktctx, sizeof(pktctx));
 			/* ret = memcpy_bpf_prog(&pktctx); */
+			/* ret = pktproc_bpf_prog(&pktctx); */
 
 			/* uint64_t end_ts = readTSC(); */
 			/* calc_latency_from_ts(start_ts, end_ts); */

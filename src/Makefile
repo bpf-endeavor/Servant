@@ -6,7 +6,7 @@ LDFLAGS = -lbpf -lubpf -lm -lpthread -lrt
 
 OBJS = servant.o sockets.o heart.o brain.o config.o service_stats.o log.o \
 		map.o interpose_link.o vchannel.o userspace_maps.o \
-		baked_in/memcpy.o
+		baked_in/memcpy.o baked_in/packet_processing.o
 HEADERS = $(wildcard ./*.h)
 # $(info $(HEADERS))
 

@@ -1,11 +1,11 @@
 #include <servant/servant_engine.h>
-#include "memcpy.h"
+#include "internal_benchmarks.h"
 #include <linux/if_ether.h>
 #include <linux/ip.h>
 #include <linux/udp.h>
 
 #define CHUNK_SIZE sizeof(struct iphdr)
-#define REPEAT 32
+#define REPEAT 256
 
 int memcpy_bpf_prog(struct pktctx *ctx)
 {
