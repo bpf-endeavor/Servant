@@ -7,9 +7,27 @@
 #include <bpf/libbpf.h> // bpf_get_link_xdp_id
 #include <bpf/bpf.h> // bpf_prog_get_fd_by_id, bpf_obj_get_info_by_fd, ...
 
+
 #include "map.h"
 /* #include "config.h" */
 #include "log.h"
+
+
+/* hash map */
+/* #include "../deps/c-hashmap/map.h" */
+
+/* hashmap* map_names_hash; */
+/* fn() { */
+/* int name_len = strlen(map_name); */
+/* uintptr_t index; */
+/* int res = hashmap_get(map_names_hash, map_name, name_len, &index); */
+/* if (res) { */
+/* 	*idx = index; */
+/* 	return map_fds[(int)index]; */
+/* } */
+/* return 0; */
+/* } */
+/* ------- */
 
 
 // TODO (Farbod): Should I use a hash map data structure?
@@ -170,7 +188,7 @@ _get_map_fd_and_idx(char *map_name, int *idx)
 	return 0;
 }
 
-void *
+inline void *
 ubpf_map_lookup_elem_kern(char *map_name, const void *key_ptr)
 {
 	int idx;

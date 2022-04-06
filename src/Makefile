@@ -1,12 +1,12 @@
 CC = clang-13
 # CC = gcc
 # CFLAGS = -g -O0 -Wall
-CFLAGS = -O2 -g -Wall -march=x86-64-v3
+CFLAGS = -O2 -g -Wall -march=x86-64-v3 -I ../deps/
 LDFLAGS = -lbpf -lubpf -lm -lpthread -lrt
 
 OBJS = servant.o sockets.o heart.o brain.o config.o service_stats.o log.o \
 		map.o interpose_link.o vchannel.o userspace_maps.o \
-		baked_in/memcpy.o baked_in/packet_processing.o
+		baked_in/memcpy.o baked_in/packet_processing.o ../deps/c-hashmap/map.o
 HEADERS = $(wildcard ./*.h)
 # $(info $(HEADERS))
 
