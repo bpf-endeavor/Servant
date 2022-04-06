@@ -52,9 +52,9 @@ void complete_tx(struct xsk_socket_info *xsk) {
 	if (!xsk->outstanding_tx)
 		return;
 
-	/* if (config.copy_mode == XDP_COPY || */
-	/* 		xsk_ring_prod__needs_wakeup(&xsk->tx)) { */
-	if (config.copy_mode == XDP_COPY) {
+	if (config.copy_mode == XDP_COPY ||
+			xsk_ring_prod__needs_wakeup(&xsk->tx)) {
+	/* if (config.copy_mode == XDP_COPY) { */
 		/* xsk->app_stats.copy_tx_sendtos++; */
 		kick_tx(xsk);
 	}
