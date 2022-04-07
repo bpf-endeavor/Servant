@@ -16,7 +16,7 @@
 
 #include "baked_in/internal_benchmarks.h"
 
-#define USE_POLL
+/* #define USE_POLL */
 #define SHOW_THROUGHPUT
 /* #define VM_CALL_BATCHING */
 
@@ -48,13 +48,14 @@ static inline void kick_tx(struct xsk_socket_info *xsk)
 	exit(EXIT_FAILURE);
 }
 
-void complete_tx(struct xsk_socket_info *xsk) {
+static inline
+int complete_tx(struct xsk_socket_info *xsk) {
 	if (!xsk->outstanding_tx)
-		return;
+		return 0;
 
-	if (config.copy_mode == XDP_COPY ||
-			xsk_ring_prod__needs_wakeup(&xsk->tx)) {
-	/* if (config.copy_mode == XDP_COPY) { */
+	/* if (config.copy_mode == XDP_COPY || */
+	/* 		xsk_ring_prod__needs_wakeup(&xsk->tx)) { */
+	if (config.copy_mode == XDP_COPY) {
 		/* xsk->app_stats.copy_tx_sendtos++; */
 		kick_tx(xsk);
 	}
@@ -71,7 +72,10 @@ void complete_tx(struct xsk_socket_info *xsk) {
 		int ret;
 
 		ret = xsk_ring_prod__reserve(&xsk->umem->fq, rcvd, &idx_fq);
-		while (ret != rcvd) {
+		if (ret == 0)
+			return 0;
+		if (ret != rcvd) {
+			DEBUG("failed to get space on fill queue\n");
 			if (ret < 0) {
 				ERROR("Error: [complete_tx: parse.c] reserving fill ring failed\n");
 				exit(EXIT_FAILURE);
@@ -85,15 +89,17 @@ void complete_tx(struct xsk_socket_info *xsk) {
 			ret = xsk_ring_prod__reserve(&xsk->umem->fq, rcvd, &idx_fq);
 		}
 
-		for (i = 0; i < rcvd; i++)
+		for (i = 0; i < ret; i++)
 			*xsk_ring_prod__fill_addr(&xsk->umem->fq, idx_fq++) =
 				*xsk_ring_cons__comp_addr(&xsk->umem->cq, idx_cq++);
 
-		xsk_ring_prod__submit(&xsk->umem->fq, rcvd);
-		xsk_ring_cons__release(&xsk->umem->cq, rcvd);
-		xsk->outstanding_tx -= rcvd;
+		xsk_ring_prod__submit(&xsk->umem->fq, ret);
+		xsk_ring_cons__release(&xsk->umem->cq, ret);
+		xsk->outstanding_tx -= ret;
 		/* xsk->ring_stats.tx_npkts += rcvd; */
+		return ret;
 	}
+	return 0;
 }
 
 /**
@@ -390,7 +396,9 @@ pump_packets(struct xsk_socket_info *xsk, struct ubpf_vm *vm)
 			break;
 
 		if (xsk->outstanding_tx > 0)
-			complete_tx(xsk);
+			ret = complete_tx(xsk);
+		/* if (ret > 0) */
+		/* 	empty_rx--; */
 
 #ifdef USE_POLL
 		if (empty_rx >= 8) {
@@ -400,7 +408,7 @@ pump_packets(struct xsk_socket_info *xsk, struct ubpf_vm *vm)
 			if (ret <= 0)
 				continue;
 			else
-				empty_rx = 0;
+				empty_rx /= 2;
 		}
 #endif
 
@@ -476,7 +484,7 @@ pump_packets(struct xsk_socket_info *xsk, struct ubpf_vm *vm)
 		pkt_count += rx;
 		/* if (ret == SEND) */
 		/* 	sent_count++; */
-		clock_gettime(CLOCK_REALTIME, &spec);
+		clock_gettime(CLOCK_MONOTONIC_COARSE, &spec);
 		uint64_t now = spec.tv_sec * 1000000 + spec.tv_nsec / 1000;
 		uint64_t delta = now - rprt_ts;
 		if (delta > 2000000) {
