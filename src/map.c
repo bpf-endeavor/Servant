@@ -43,18 +43,46 @@ static size_t roundup_page(size_t sz)
 	return ((sz + page_size - 1) / page_size) * page_size;
 }
 
+/**
+ * This function parses mapName:reqIndex pairs
+ * @param req: pointer to string to be parsed
+ * @param out_name
+ * @param out_index
+ * */
+static void get_name_index_requested(char *req, char **out_name, int *out_index)
+{
+	char *stringp = req;
+	strsep(&stringp, ":");
+	if (stringp == NULL) {
+		// no request position
+		*out_name = strdup(req);
+		*out_index = -1;
+	} else {
+		*out_name = req;
+		*out_index = atoi(stringp);
+	}
+}
+
 int
-setup_map_system(char *names[], int size)
+setup_map_system(char *requests[], int size)
 {
 	if (size > MAX_NR_MAPS) {
 		ERROR("Number of requested maps exceed the limit\n");
 		return 1;
 	}
+
+	char *names[MAX_NR_MAPS] = {};
+	int req_index[MAX_NR_MAPS] ={};
+	for (int i = 0; i < size; i++) {
+		get_name_index_requested(requests[i], &names[i], &req_index[i]);
+	}
+
 	uint32_t id = 0;
 	int ret = 0;
 	struct bpf_map_info map_info = {};
 	uint32_t info_size = sizeof(map_info);
 	uint32_t lastGlobalIndex = 0;
+	/* Go through all the eBPF maps on the system */
 	while (!ret) {
 		ret = bpf_map_get_next_id(id, &id);
 		if (ret) {
@@ -66,38 +94,58 @@ setup_map_system(char *names[], int size)
 		}
 		int map_fd = bpf_map_get_fd_by_id(id);
 		bpf_obj_get_info_by_fd(map_fd, &map_info, &info_size);
+		/* Compare the found map's name with our list of names */
 		for (int i = 0; i < size; i++) {
 			if (!strcmp(names[i], map_info.name)) {
-				INFO("* map id: %ld map name: %s\n", id, map_info.name);
-				map_fds[lastGlobalIndex] = map_fd;
-				map_names[lastGlobalIndex] = strdup(map_info.name);
-				map_value_size[lastGlobalIndex] = map_info.value_size;
+				while (map_fds[lastGlobalIndex] != 0) {
+					/* Skip indexes that was used before */
+					lastGlobalIndex++;
+				}
+				int cur_index = -1;
+				if (req_index[i] == -1) {
+					/* No specific index was requested */
+					cur_index = lastGlobalIndex;
+				} else {
+					cur_index = req_index[i];
+					if (map_fds[cur_index] != 0) {
+						/* if that index was used by others then copy it to new location  in order to fulfill the requested index*/
+						/* expecting lastGlobalIndex to be an empty position */
+						map_fds[lastGlobalIndex] = map_fds[cur_index];
+						map_names[lastGlobalIndex] = map_names[cur_index];
+						map_value_size[lastGlobalIndex] = map_value_size[cur_index];
+						map_value_pool[lastGlobalIndex] = map_value_pool[cur_index];
+						mmap_area[lastGlobalIndex] = mmap_area[cur_index];
+					}
+				}
 
-				void *buffer = malloc(map_value_size[lastGlobalIndex]);
+				map_fds[cur_index] = map_fd;
+				map_names[cur_index] = names[i];
+				map_value_size[cur_index] = map_info.value_size;
+
+				void *buffer = malloc(map_value_size[cur_index]);
 				if (!buffer) {
 					ERROR("Failed to allocate map value pool object\n");
 					return 1;
 				}
-				map_value_pool[lastGlobalIndex] = buffer;
+				map_value_pool[cur_index] = buffer;
 
+				INFO("* map id: %ld map name: %s (internal index: %d)\n", id, map_info.name, cur_index);
 				if (map_info.map_flags & BPF_F_MMAPABLE) {
 					const size_t map_sz = roundup_page((size_t)map_info.value_size * map_info.max_entries);
 					INFO("# map name: %s is mmapped\n", map_info.name);
 					INFO("# details (size: %ld fd: %d value size: %d entries: %d)\n",
-							map_sz, map_fd, map_value_size[lastGlobalIndex], map_info.max_entries);
+							map_sz, map_fd, map_value_size[cur_index], map_info.max_entries);
 					void *m = mmap(NULL, map_sz, PROT_READ | PROT_WRITE, MAP_SHARED, map_fd, 0);
 					if (m == MAP_FAILED) {
 						ERROR("Failed to memory map 'ebpf MAP' size: %ld\n", map_sz);
-						mmap_area[lastGlobalIndex] = NULL;
+						mmap_area[cur_index] = NULL;
 						/* return 1; */
 					} else {
-						mmap_area[lastGlobalIndex] = m;
+						mmap_area[cur_index] = m;
 					}
 				} else {
-					mmap_area[lastGlobalIndex] = NULL;
+					mmap_area[cur_index] = NULL;
 				}
-
-				lastGlobalIndex++;
 			}
 		}
 	}
