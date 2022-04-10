@@ -4,9 +4,9 @@
  * */
 #include "general_header.h"
 
-
+#define USE_TX
 #define CHUNK_SIZE sizeof(struct iphdr)
-#define REPEAT 256
+#define REPEAT 64
 
 SEC("prog")
 int bpf_prog(CONTEXT *ctx)
@@ -32,5 +32,16 @@ int bpf_prog(CONTEXT *ctx)
 #ifdef ISXDP
 	INC_TPUT;
 #endif
+#ifndef USE_TX
 	return XDP_DROP;
+#else
+	// Swap MAC
+	unsigned char tmp;
+	for (int i = 0; i < 6; i++) {
+		tmp = eth->h_source[i];
+		eth->h_source[i] = eth->h_dest[i];
+		eth->h_dest[i] = tmp;
+	}
+	return XDP_TX;
+#endif
 }

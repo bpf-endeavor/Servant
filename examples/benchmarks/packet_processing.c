@@ -1,7 +1,8 @@
 #include <linux/ipv6.h>
 #include "general_header.h"
 
-#define REPEAT 256
+#define USE_TX
+#define REPEAT 2
 
 #define IPV4_HDR_LEN_NO_OPT 20
 #define PCKT_FRAGMENTED 65343
@@ -213,5 +214,16 @@ int bpf_prog(CONTEXT *ctx)
 #ifdef ISXDP
 	INC_TPUT;
 #endif
+#ifndef USE_TX
 	return XDP_DROP;
+#else
+	// Swap MAC
+	unsigned char tmp;
+	for (int i = 0; i < 6; i++) {
+		tmp = eth->h_source[i];
+		eth->h_source[i] = eth->h_dest[i];
+		eth->h_dest[i] = tmp;
+	}
+	return XDP_TX;
+#endif
 }
