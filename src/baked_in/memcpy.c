@@ -1,11 +1,13 @@
-#include <servant/servant_engine.h>
+#include "../include/servant_engine.h"
 #include "internal_benchmarks.h"
 #include <linux/if_ether.h>
 #include <linux/ip.h>
 #include <linux/udp.h>
 
+
+#define USE_TX
 #define CHUNK_SIZE sizeof(struct iphdr)
-#define REPEAT 256
+#define REPEAT 64
 
 int memcpy_bpf_prog(struct pktctx *ctx)
 {
@@ -27,5 +29,16 @@ int memcpy_bpf_prog(struct pktctx *ctx)
 		udp->len += 1;
 		memcpy(ip, udp, CHUNK_SIZE);
 	}
+#ifndef USE_TX
 	return DROP;
+#else
+	// Swap MAC
+	unsigned char tmp;
+	for (int i = 0; i < 6; i++) {
+		tmp = eth->h_source[i];
+		eth->h_source[i] = eth->h_dest[i];
+		eth->h_dest[i] = tmp;
+	}
+	return SEND;
+#endif
 }

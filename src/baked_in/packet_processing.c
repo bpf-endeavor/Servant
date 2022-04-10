@@ -2,10 +2,11 @@
 #include <linux/ip.h>
 #include <linux/ipv6.h>
 #include <linux/icmp.h>
-#include <servant/servant_engine.h>
+#include "../include/servant_engine.h"
 #include "internal_benchmarks.h"
 
-#define REPEAT 256
+#define USE_TX
+#define REPEAT 2
 
 #define IPV4_HDR_LEN_NO_OPT 20
 #define PCKT_FRAGMENTED 65343
@@ -146,15 +147,15 @@ int pktproc_bpf_prog(struct pktctx *ctx)
 	__u64 off;
 	void* data = (void*)(long)ctx->data;
 	void* data_end = (void*)(long)ctx->data_end;
-	struct ctl_value* cval;
-	struct real_definition* dst = NULL;
+	/* struct ctl_value* cval; */
+	/* struct real_definition* dst = NULL; */
 	struct packet_description pckt = {};
-	struct vip_definition vip = {};
-	struct vip_meta* vip_info;
-	struct lb_stats* data_stats;
-	__u64 iph_len;
+	/* struct vip_definition vip = {}; */
+	/* struct vip_meta* vip_info; */
+	/* struct lb_stats* data_stats; */
+	/* __u64 iph_len; */
 	__u8 protocol;
-	__u16 original_sport;
+	/* __u16 original_sport; */
 
 	struct ethhdr* eth = data;
 	__u32 eth_proto;
@@ -199,6 +200,16 @@ int pktproc_bpf_prog(struct pktctx *ctx)
 		}
 	}
 
-	/* INC_TPUT; */
+#ifndef USE_TX
 	return DROP;
+#else
+	// Swap MAC
+	unsigned char tmp;
+	for (int i = 0; i < 6; i++) {
+		tmp = eth->h_source[i];
+		eth->h_source[i] = eth->h_dest[i];
+		eth->h_dest[i] = tmp;
+	}
+	return SEND;
+#endif
 }
