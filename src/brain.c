@@ -48,8 +48,8 @@ ubpf_time_get_ns(void)
 {
 	struct timespec spec = {};
 	/* clock_gettime(CLOCK_REALTIME, &spec); */
-	/* clock_gettime(CLOCK_MONOTONIC, &spec); */
-	clock_gettime(CLOCK_MONOTONIC_COARSE, &spec);
+	clock_gettime(CLOCK_MONOTONIC, &spec);
+	/* clock_gettime(CLOCK_MONOTONIC_COARSE, &spec); */
 	return (uint64_t)(spec.tv_sec) * (uint64_t)1000000000 + (uint64_t)(spec.tv_nsec);
 }
 
