@@ -63,20 +63,16 @@ int _ubpf_map_test(struct xdp_md *ctx)
 			return XDP_PASS;
 		d->ip_proto = ip->protocol;
 		if (ip->protocol == IPPROTO_UDP) {
-			if (FAIL_PTR_BOUND(udp, data_end)) 
+			if (FAIL_PTR_BOUND(udp, data_end))
 				return XDP_PASS;
-			__u32 len = bpf_ntohs(udp->len);
+			unsigned short len = bpf_ntohs(udp->len);
 			// Remove header length;
 			len = len - sizeof(struct udphdr);
-			/* if (len > (MAX_PAYLOAD_SIZE - 1)) */
-			/* 	len = MAX_PAYLOAD_SIZE - 1; */
-			if (((payload + len) > data_end))
-				return XDP_PASS;
 			d->len = len;
-			for (__u32 i = 0; i < len; i++) {
-				if ((payload + i + 1) > data_end)
-					return XDP_PASS;
-				if (i + 1 > MAX_PAYLOAD_SIZE)
+			for (unsigned short i = 0; i < len; i++) {
+				if ((void *)(payload +i+1) > (void *)(long)ctx->data_end)
+					break;
+				if (i >= MAX_PAYLOAD_SIZE)
 					break;
 				// copy data to map
 				d->payload[i] = payload[i];
