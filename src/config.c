@@ -86,9 +86,8 @@ void parse_args(int argc, char *argv[])
         {"map", required_argument, NULL, MAP},
     };
     int ret;
-    char optstring[] = "";
     while (1) {
-        ret = getopt_long(argc, argv, optstring, long_opts, NULL);
+        ret = getopt_long(argc, argv, "", long_opts, NULL);
         if (ret == -1)
             break;
         switch (ret) {
