@@ -1,0 +1,91 @@
+diff --git a/katran/lib/bpf/balancer_kern.c b/katran/lib/bpf/balancer_kern.c
+index 4f917366..309b0f70 100644
+--- a/katran/lib/bpf/balancer_kern.c
++++ b/katran/lib/bpf/balancer_kern.c
+@@ -20,6 +20,13 @@
+ #include "pckt_encap.h"
+ #include "pckt_parsing.h"
+ 
++#define DUMP(fmt, ...)                            \
++({                                                      \
++        static const char ____fmt[] = fmt;              \
++        bpf_trace_printk(____fmt, sizeof(____fmt),      \
++                         ##__VA_ARGS__);                \
++})
++
+ __attribute__((__always_inline__)) static inline __u32 get_packet_hash(
+     struct packet_description* pckt,
+     bool hash_16bytes) {
+@@ -406,6 +413,45 @@ increment_quic_cid_drop_real_0() {
+   quic_drop->v2 += 1;
+ }
+ 
++__attribute__((unused))
++__attribute__((__always_inline__)) static inline void
++dump_packet(struct xdp_md *ctx)
++{
++  void *data = (void *)(long)ctx->data;
++  void *data_end = (void *)(long)ctx->data_end;
++  struct ethhdr *eth = data;
++  if (eth + 1 > data_end)
++    return;
++  DUMP("Packet size: %ld\n", (__u64)(ctx->data_end - ctx->data));
++  DUMP("Src MAC: %x:%x:%x:", eth->h_source[0], eth->h_source[1],
++      eth->h_source[2]);
++  DUMP("%x:%x:%x\n", eth->h_source[3], eth->h_source[4],
++      eth->h_source[5]);
++  DUMP("Dest MAC: %x:%x:%x:", eth->h_dest[0], eth->h_dest[1],
++      eth->h_dest[2]);
++  DUMP("%x:%x:%x\n", eth->h_dest[3], eth->h_dest[4],
++      eth->h_dest[5]);
++  DUMP("Ether Type: %x\n", bpf_ntohs(eth->h_proto));
++  /* struct ethhdr = ctx->data; */
++  if (eth->h_proto == bpf_htons(ETH_P_IP)) {
++    struct iphdr *ip = (struct iphdr *)(eth + 1);
++    if (ip + 1 > data_end)
++      return;
++    // Swap IP
++    DUMP("Src IP: %x\n", bpf_ntohl(ip->saddr));
++    DUMP("Dst IP: %x\n", bpf_ntohl(ip->daddr));
++    DUMP("ip proto: %d\n", ip->protocol);
++    if (ip->protocol == IPPROTO_UDP) {
++      struct udphdr *udp = (ctx->data + (sizeof(*eth) + (ip->ihl * 4)));
++      if (udp + 1 > data_end)
++        return;
++      DUMP("Transport: UDP\n");
++      DUMP("Src PORT: %d\n", bpf_ntohs(udp->source));
++      DUMP("Dst PORT: %d\n", bpf_ntohs(udp->dest));
++    }
++  }
++}
++
+ __attribute__((__always_inline__)) static inline int
+ process_packet(struct xdp_md* xdp, __u64 off, bool is_ipv6) {
+   void* data = (void*)(long)xdp->data;
+@@ -702,11 +748,23 @@ process_packet(struct xdp_md* xdp, __u64 off, bool is_ipv6) {
+       return XDP_DROP;
+     }
+   } else {
+-    if (!PCKT_ENCAP_V4(xdp, cval, &pckt, dst, pkt_bytes)) {
+-      return XDP_DROP;
++    if (pckt.flow.port16[1] == 16129) { // 16129 = hton(319)
++      // this is ptp packet please let it go
++      // without ip-in-ip encapsulation
++      // just swap the mac address
++      struct ethhdr *eth = data;
++      unsigned char tmp;
++      for (int i = 0; i < 6; i++) {
++        tmp = eth->h_source[i];
++        eth->h_source[i] = eth->h_dest[i];
++        eth->h_dest[i] = tmp;
++      }
++    } else {
++      if (!PCKT_ENCAP_V4(xdp, cval, &pckt, dst, pkt_bytes)) {
++        return XDP_DROP;
++      }
+     }
+   }
+-
+   return XDP_TX;
+ }
+ 
