@@ -4,7 +4,7 @@ moongen_base=$HOME/MoonGen
 moongen=$moongen_base/build/MoonGen
 config=$HOME/mytest.lua
 result_dir=$HOME/latency_results/
-duration=20
+duration=30
 
 if [ ! -f $moongen ]; then
 	echo Looks like moongen is not installed at $moongen
