@@ -253,7 +253,7 @@ apply_action(struct xsk_socket_info *xsk, struct xdp_desc *desc, int action)
 		int ret = send_interpose_msg(ctx, desc->len);
 		if (ret < 0) {
 			// failed to pass packet
-			DEBUG("Failed to pass packect");
+			ERROR("Failed to pass packect");
 		}
 		// Free the AF_XDP descriptor
 		drop(xsk, &desc, 1);
@@ -470,7 +470,7 @@ pump_packets(struct xsk_socket_info *xsk, struct ubpf_vm *vm)
 			/* uint64_t end_ts = readTSC(); */
 			/* calc_latency_from_ts(start_ts, end_ts); */
 			batch[i]->len = pktctx.pkt_len;
-			/* batch[i]->addr += pktctx.trim_head; */
+			batch[i]->addr += pktctx.trim_head;
 			apply_action(xsk, batch[i], ret);
 #ifdef SHOW_THROUGHPUT
 			/* DEBUG("action: %d\n", ret); */

@@ -144,7 +144,7 @@ ssize_t recvfrom(int sockfd, void *buf, size_t len, int flags,
 	addr->sin_port = udp->source;
 	addr->sin_addr.s_addr = ip->saddr;
 	const int hdrlen = sizeof(struct iphdr) + sizeof(struct udphdr);
-	/* printf("from: %d %d len: %ld hdrlen: %d\n", ntohs(udp->source), */
+	/* printf("from: %d %x len: %ld hdrlen: %d\n", ntohs(udp->source), */
 	/* 		ntohl(ip->saddr), ret, hdrlen); */
 	ret -= hdrlen;
 	memmove(buf, buf + hdrlen, ret);
