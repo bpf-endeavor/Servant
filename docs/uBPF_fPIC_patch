@@ -1,39 +1,40 @@
 diff --git a/vm/Makefile b/vm/Makefile
-index ee45188..24bb8f9 100644
+index 6613c53..4c4ab69 100644
 --- a/vm/Makefile
 +++ b/vm/Makefile
 @@ -12,7 +12,7 @@
  # See the License for the specific language governing permissions and
  # limitations under the License.
-
+ 
 -CFLAGS := -Wall -Werror -Iinc -O2 -g -Wunused-parameter
 +CFLAGS := -Wall -Werror -Iinc -O2 -g -Wunused-parameter -fPIC
  LDLIBS := -lm
-
+ 
  INSTALL ?= install
-@@ -29,20 +29,18 @@ CFLAGS += -fsanitize=address
+@@ -29,21 +29,18 @@ CFLAGS += -fsanitize=address
  LDFLAGS += -fsanitize=address
  endif
-
+ 
 -all: libubpf.a test
 +all: libubpfPIC.a test
-
+ 
  ubpf_jit_x86_64.o: ubpf_jit_x86_64.c ubpf_jit_x86_64.h
-
--libubpf.a: ubpf_vm.o ubpf_jit_x86_64.o ubpf_loader.o
-+libubpfPIC.a: ubpf_vm.o ubpf_jit_x86_64.o ubpf_loader.o
+ 
+-libubpf.a: ubpf_vm.o ubpf_jit_x86_64.o ubpf_loader.o utils/hash_funcs/lookup3.o
++libubpfPIC.a: ubpf_vm.o ubpf_jit_x86_64.o ubpf_loader.o utils/hash_funcs/lookup3.o
  	ar rc $@ $^
-
+ 
 -test: test.o libubpf.a
 +test: test.o libubpfPIC.a
-
+ 
  install:
  	$(INSTALL) -d $(DESTDIR)$(PREFIX)/lib
 -	$(INSTALL) -m 644 libubpf.a $(DESTDIR)$(PREFIX)/lib
 -	$(INSTALL) -d $(DESTDIR)$(PREFIX)/include
 -	$(INSTALL) -m 644 inc/ubpf.h $(DESTDIR)$(PREFIX)/include
+-	$(INSTALL) -m 644 inc/ubpf_maps.h $(DESTDIR)$(PREFIX)/include
 +	$(INSTALL) -m 644 libubpfPIC.a $(DESTDIR)$(PREFIX)/lib
-
+ 
  clean:
 -	rm -f test libubpf.a *.o
 +	rm -f test libubpfPIC.a *.o
