@@ -11,6 +11,7 @@
 #include "log.h"
 #include "include/packet_context.h"
 #include "interpose_link.h"
+#include "udp_socket.h"
 
 #include <time.h>
 
@@ -244,19 +245,39 @@ apply_action(struct xsk_socket_info *xsk, struct xdp_desc *desc, int action)
 			drop(xsk, &desc, 1);
 		}
 	} else if (action == PASS) {
-		/* Send to application using the interpose layer */
 		uint64_t addr = desc->addr;
 		addr = xsk_umem__add_offset_to_addr(addr);
 		void *ctx = xsk_umem__get_data(xsk->umem->buffer, addr);
-		/* Note: On the other side interpose.c cxpects both IP and UDP
-		 * headers to be provided to answer "recvfrom" request. */
-		int ret = send_interpose_msg(ctx, desc->len);
-		if (ret < 0) {
-			// failed to pass packet
-			ERROR("Failed to pass packect");
+
+		if (config.use_packet_injection) {
+			/* Send to application using the interpose layer */
+			/* Note: On the other side interpose.c cxpects both IP and UDP
+			 * headers to answer "recvfrom" request.
+			 * uBPF program should trim ethernet header.
+			 * */
+			int ret = send_interpose_msg(ctx, desc->len);
+			if (ret < 0) {
+				// failed to pass packet
+				ERROR("Failed to pass packect\n");
+			}
+			/* Packet data are copied to the shared channel the
+			 * AF_XDP descriptor can now be released.
+			 * */
+			drop(xsk, &desc, 1);
+		} else {
+			/* Send through UDP socket expects IP and UDP headers.
+			 * An eBPF/TC program would remove the header added by
+			 * socket. As a result receiving application response
+			 * to the original sender.
+			 * */
+			// Use UDP socket to send packet to application
+			int ret = send_udp_socket_msg(ctx, desc->len);
+			if (ret < 0) {
+				// failed to pass packet
+				ERROR("Failed to pass packet (UDP socket)\n");
+			}
+			drop(xsk, &desc, 1);
 		}
-		// Free the AF_XDP descriptor
-		drop(xsk, &desc, 1);
 	} else {
 		ret = drop(xsk, &desc, 1);
 		if (ret != 1) {

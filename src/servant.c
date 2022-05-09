@@ -26,6 +26,7 @@
 #include "brain.h"
 #include "interpose_link.h"
 #include "userspace_maps.h"
+#include "udp_socket.h"
 
 
 static void int_exit() {
@@ -95,8 +96,14 @@ int main(int argc, char *argv[])
 		INFO("UTH has not implemented yet\n");
 	}
 
-	if (config.use_packet_injection)
+	if (config.use_packet_injection) {
 		setup_interpose_link();
+		INFO("Use interpose link for PASS verdict\n");
+	}
+	else {
+		setup_udp_socket();
+		INFO("Use RAW socket for PASS verdict\n");
+	}
 
 	// Add interrupt handler
 	signal(SIGINT,  int_exit);
@@ -132,6 +139,8 @@ int main(int argc, char *argv[])
 teardown2:
 	if (config.use_packet_injection)
 		teardown_interpose_link();
+	else
+		teardown_udp_socket();
 teardown:
 	if (config.custom_kern_prog && config.custom_kern_path[0] != '-') {
 		// Remove XDP program
