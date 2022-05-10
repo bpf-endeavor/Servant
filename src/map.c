@@ -31,11 +31,11 @@
 
 
 // TODO (Farbod): Should I use a hash map data structure?
-char *map_names[MAX_NR_MAPS] = {};
-int map_fds[MAX_NR_MAPS] = {};
-size_t map_value_size[MAX_NR_MAPS];
-void *map_value_pool[MAX_NR_MAPS];
-void *mmap_area[MAX_NR_MAPS];
+static char *map_names[MAX_NR_MAPS] = {};
+static int map_fds[MAX_NR_MAPS] = {};
+static size_t map_value_size[MAX_NR_MAPS] = {};
+static void *map_value_pool[MAX_NR_MAPS] = {};
+static void *mmap_area[MAX_NR_MAPS] = {};
 
 static size_t roundup_page(size_t sz)
 {
@@ -108,6 +108,7 @@ setup_map_system(char *requests[], int size)
 				} else {
 					cur_index = req_index[i];
 					if (map_fds[cur_index] != 0) {
+						DEBUG("Map index relocation %d -> %d\n", cur_index, lastGlobalIndex);
 						/* if that index was used by others then copy it to new location  in order to fulfill the requested index*/
 						/* expecting lastGlobalIndex to be an empty position */
 						map_fds[lastGlobalIndex] = map_fds[cur_index];
@@ -129,7 +130,7 @@ setup_map_system(char *requests[], int size)
 				}
 				map_value_pool[cur_index] = buffer;
 
-				INFO("* map id: %ld map name: %s (internal index: %d)\n", id, map_info.name, cur_index);
+				INFO("* map id: %ld map name: %s (internal index: %d fd: %d)\n", id, map_info.name, cur_index, map_fd);
 				if (map_info.map_flags & BPF_F_MMAPABLE) {
 					const size_t map_sz = roundup_page((size_t)map_info.value_size * map_info.max_entries);
 					INFO("# map name: %s is mmapped\n", map_info.name);
@@ -149,7 +150,11 @@ setup_map_system(char *requests[], int size)
 			}
 		}
 	}
-	// Fail just for testing
+
+	/* DEBUG("Memory map addresses:\n"); */
+	/* for (int i = 0; i <  10; i++) { */
+	/* 	DEBUG("fd:%d -> mmap: %p\n", map_fds[i], mmap_area[i]); */
+	/* } */
 	return 0;
 }
 
@@ -268,6 +273,7 @@ void *
 ubpf_map_lookup_elem_kern_fast(int index, const void *key_ptr)
 {
 	if (mmap_area[index] != NULL) {
+		/* DEBUG("mmap access %d %d\n", index, *(uint32_t *)key_ptr); */
 		// if memory mapped then key is integer (?!)
 		return mmap_area[index] + (map_value_size[index] * (*(uint32_t *)key_ptr));
 	}

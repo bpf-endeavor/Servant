@@ -10,10 +10,10 @@
  * map that should be accessed during a lookup or an update. They are
  * initialized by setup_map_system function.
  */
-extern char *map_names[MAX_NR_MAPS];
-extern int map_fds[MAX_NR_MAPS];
-extern size_t map_value_size[MAX_NR_MAPS];
-extern void *map_value_pool[MAX_NR_MAPS];
+/* extern char *map_names[MAX_NR_MAPS]; */
+/* extern int map_fds[MAX_NR_MAPS]; */
+/* extern size_t map_value_size[MAX_NR_MAPS]; */
+/* extern void *map_value_pool[MAX_NR_MAPS]; */
 
 /**
  * Tries to implement the bpf_map_lookup_elem semantic. in uBPF environment.
