@@ -1,24 +1,6 @@
 #include "general_header.h"
 
-#ifdef ISUBPF
-// sinline int bpf_prog(CONTEXT *ctx);
-// 
-// /**
-//  * Entry of the uBPF program
-//  */
-// int batch_processing_entry(struct pktctxbatch *batch)
-// {
-// 	for (int i = 0; i < batch->cnt; i++) {
-// 		batch->rets[i] = bpf_prog(&batch->pkts[i]);
-// 	}
-// 	return 0;
-// }
-#endif
-
 SEC("prog")
-/* #ifdef ISUBPF */
-/* sinline */
-/* #endif */
 int bpf_prog(CONTEXT *ctx)
 {
 	void *data = (void *)(long)ctx->data;
@@ -26,6 +8,9 @@ int bpf_prog(CONTEXT *ctx)
 	struct ethhdr *eth = data;
 	if (out_of_pkt(eth, data_end))
 		return XDP_DROP;
+	// Only ECHO IP packets
+	if (eth->h_proto != bpf_htons(ETH_P_IP))
+		return XDP_PASS;
 	// Swap MAC
 	unsigned char tmp;
 	for (int i = 0; i < 6; i++) {
@@ -53,5 +38,8 @@ int bpf_prog(CONTEXT *ctx)
 	}
 	/* INC_TPUT; */
 	/* return XDP_DROP; */
+	/* DUMP("ECHO (eth-proto: %X)\n", bpf_ntohs(eth->h_proto)); */
 	return XDP_TX;
 }
+
+char _license[] SEC("license") = "GPL";

@@ -42,7 +42,6 @@ run_ubpf() {
 		rm $1
 	fi
 	make UBPF=1
-	# --map tput 
 	sudo taskset -c $queue $servant --busypoll --xdp-prog "$curdir/bin/xdp.o" \
 		--map xsks_map --rx-size $ring_size --tx-size $ring_size \
 		--batch-size 64 \
