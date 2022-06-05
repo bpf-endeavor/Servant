@@ -21,7 +21,7 @@ else
 	exit 1
 fi
 
-# CHeck dummy key is added (for private repo access)
+# Check dummy key is added (for private repo access)
 if [ ! -f "$HOME/.ssh/id_dummy" ]; then
 	echo "SSH key for accessing private repos is not installed"
 	exit 1
@@ -74,6 +74,11 @@ if [ $MODE = "DUT" ]; then
 	sudo make install
 	echo `whereis libbpf` | awk '{print $2}' | xargs dirname | sudo tee /etc/ld.so.conf.d/libbpf.conf
 	sudo ldconfig
+	# llvm13
+	cd $HOME/Servant/docs
+	sudo bash llvm.sh
+	# llvm9
+	sudo apt install -y clang-9
 	# servant
 	cd $HOME
 	git clone ssh://git@fyro.ir:10022/fshahinfar1/Servant.git --config core.sshCommand='ssh -i ~/.ssh/id_dummy'
@@ -82,18 +87,13 @@ if [ $MODE = "DUT" ]; then
 	cd src
 	make
 	sudo make install
-	# llvm13
-	cd $HOME/Servant/docs
-	sudo bash llvm.sh
-	# llvm9
-	sudo apt install -y clang-9
 	# BMC
 	cd $HOME
 	git clone ssh://git@fyro.ir:10022/fshahinfar1/BMC.git --config core.sshCommand='ssh -i ~/.ssh/id_dummy'
 	cd BMC
 	./make.sh
 	# Copy mmwatch
-	cp $Home/Servant/docs/mmwatch $Home/
+	cp $Home/Servant/docs/mmwatch $Home/mmwatch
 	# Userspace Katran
 	cd $HOME
 	git clone ssh://git@fyro.ir:10022/fshahinfar1/katran_userspace.git --config core.sshCommand='ssh -i ~/.ssh/id_dummy'
@@ -106,6 +106,11 @@ if [ $MODE = "DUT" ]; then
 	cd linux-5.13/tools/perf/
 	make
 	sudo ln -s `pwd`/perf /usr/bin/perf
+	# bpftool
+	cd $HOME/linux-5.13/tools/bpf/bpftool
+	make
+	sudo make install
+	# TODO: install Katran environment
 else
 	# DPDK
 	cd $HOME
@@ -136,6 +141,7 @@ else
 	sudo insmod ./igb_uio.ko
 	# Copy bind script
 	cp /proj/progstack/farbod/bind.sh $HOME/
+	# TODO: install Mutilate for BMC experiments
 	# install moongen
 	cd $HOME
 	git clone https://github.com/emmericp/MoonGen
