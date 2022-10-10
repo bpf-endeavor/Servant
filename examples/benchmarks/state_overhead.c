@@ -1,11 +1,13 @@
 /* This program should only be used in uBPF engine */
 #include "general_header.h"
 
-#ifdef COPY_STATE
+#ifndef COPY_STATE
+#define COPY_STATE 32
+#endif
+
 struct on_packet_state {
 	char state[COPY_STATE];
 } __attribute__((packed));
-#endif
 
 #ifdef ISUBPF
 sinline int bpf_prog(CONTEXT *ctx);

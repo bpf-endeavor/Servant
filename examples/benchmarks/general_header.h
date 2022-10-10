@@ -48,6 +48,7 @@ struct {
 #define CONTEXT struct pktctx
 #include <servant/servant_engine.h>
 
+#define XDP_PASS 100
 #define XDP_DROP 200
 #define XDP_TX   300
 
