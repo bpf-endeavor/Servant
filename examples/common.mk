@@ -41,8 +41,7 @@ $(_KERN_OBJECTS): $(OUTDIR)%.o:%.c
 		-Wno-tautological-compare \
 		-Wno-unknown-warning-option \
 		-Wno-address-of-packed-member \
-		-O2 -g -emit-llvm -c $< -o ${@:.o=.ll}
-	$(LLC) -mcpu=v3 -march=bpf -filetype=obj -o "$@" ${@:.o=.ll}
+		-O2 -g -emit-llvm -c $< -o - | $(LLC) -mcpu=v3 -march=bpf -filetype=obj -o "$@"
 
 $(_USER_OBJECTS): $(OUTDIR)%:%.c $(OBJECTS)
 	echo $@ $<
