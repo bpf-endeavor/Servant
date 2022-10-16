@@ -22,7 +22,7 @@ void usage(char *prog_name)
             "Options:\n"
             "\t num-frames, frame-size, batch-size,rx-size, tx-size,\n"
             "\t copy-mode, skb-mode, xdp-prog, no-jit [disabled], uth,\n"
-            "\t busypoll, packet-injection, map\n"
+            "\t busypoll, packet-injection, map, core\n"
             );
     printf(desc, prog_name);
 }
@@ -52,6 +52,8 @@ void parse_args(int argc, char *argv[])
     config.use_packet_injection = 0;
     config.maps = malloc(10 * sizeof(char *));
     config.count_maps = 0;
+    /* Cores */
+    config.core = -1;
 
     enum opts {
         HELP = 100,
@@ -67,7 +69,8 @@ void parse_args(int argc, char *argv[])
         UTH,
         BUSY_POLLING,
         PACKET_INJECTION,
-        MAP
+        MAP,
+        CORE
     };
     struct option long_opts[] = {
         {"help", no_argument, NULL, HELP},
@@ -84,6 +87,8 @@ void parse_args(int argc, char *argv[])
         {"busypoll", no_argument, NULL, BUSY_POLLING},
         {"packet-injection", no_argument, NULL, PACKET_INJECTION},
         {"map", required_argument, NULL, MAP},
+        {"core", required_argument, NULL, CORE},
+        {NULL, 0, NULL, 0},
     };
     int ret;
     while (1) {
@@ -136,6 +141,17 @@ void parse_args(int argc, char *argv[])
                 break;
             case MAP:
                 config.maps[config.count_maps++] = optarg;
+                break;
+            case CORE:
+                {
+                    int tmp = atoi(optarg);
+                    if (tmp < 0) {
+                        INFO("Unexpected value for parameter 'core'. Ignoring the value!\n");
+                        tmp = -1;
+
+                    }
+                    config.core = tmp;
+                }
                 break;
             default:
                 usage(argv[0]);

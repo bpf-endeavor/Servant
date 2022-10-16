@@ -1,12 +1,16 @@
 /**
  * This is the main file of servant runtime system
  */
+
+#define _GNU_SOURCE
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <errno.h>
 #include <sys/resource.h>
 #include <sys/socket.h>
 #include <signal.h>
+#include <sched.h>
 
 #include <linux/if_xdp.h>
 #include <linux/if_link.h>
@@ -15,7 +19,7 @@
 #include <bpf/bpf.h>
 
 
-/* #include <pthread.h> */
+#include <pthread.h>
 
 #include "sockets.h"
 #include "map.h"
@@ -47,6 +51,20 @@ int main(int argc, char *argv[])
 	int ret;
 	parse_args(argc, argv);
 	setRlimit();
+
+	/* Set program core affinity */
+	if (config.core >= 0)  {
+		cpu_set_t cpuset;
+		CPU_ZERO(&cpuset);
+		CPU_SET(config.core, &cpuset);
+		ret = pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t),
+				&cpuset);
+		if (ret) {
+			ERROR("Failed to set cpu affinity\n");
+			return -1;
+		}
+		INFO("Core affinity set to %d\n", config.core);
+	}
 
 	// If needed load custom XDP prog
 	if (config.custom_kern_prog && config.custom_kern_path[0] != '-') {

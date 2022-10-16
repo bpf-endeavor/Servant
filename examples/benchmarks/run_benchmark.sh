@@ -10,6 +10,7 @@ curdir=`dirname $0`
 curdir=`realpath $curdir`
 loader="$curdir/bin/loader"
 servant="$curdir/../../src/servant"
+servant=`realpath $servant`
 queue=0
 ring_size=512
 
@@ -48,10 +49,11 @@ run_ubpf() {
 		rm $1
 	fi
 	make UBPF=1
-	sudo taskset -c $queue $servant --busypoll $copy_flag \
+	sudo $servant --busypoll $copy_flag \
 		--xdp-prog "$curdir/bin/xdp.o" \
 		--map xsks_map --rx-size $ring_size --tx-size $ring_size \
 		--batch-size 64 \
+		--core $queue \
 		$device $queue $1
 }
 
@@ -78,7 +80,15 @@ fi
 
 mode=$1
 binobj="$curdir/bin/$2"
-copy_flag="--copy"
+
+# should we run af_xdp in copy mode?
+driver=`ethtool -i $device | grep driver | cut -d " " -f 2`
+if [ $driver = "virtio_net" ]; then
+	copy_flag="--copy"
+else
+	copy_flag=""
+fi
+
 if [ $mode = xdp ]; then
 	run_xdp $binobj
 elif [ $mode = ubpf ]; then

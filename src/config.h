@@ -19,6 +19,8 @@ struct config {
     uint32_t ifindex;
     char *ifname;
     uint32_t qid;
+    // CPU Core
+    int core;
     // AF_XDP Configuration
     int busy_poll;
     uint32_t busy_poll_duration;
