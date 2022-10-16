@@ -214,7 +214,7 @@ uint32_t tx(struct xsk_socket_info *xsk, struct xdp_desc **batch, uint32_t cnt)
             ERROR("Failed to reserve packets on tx queue!\n");
             exit(EXIT_FAILURE);
         }
-	DEBUG("FAILED to reserve packets on tx queue\n");
+        DEBUG("FAILED to reserve packets on tx queue\n");
         return 0;
     }
 
@@ -429,7 +429,7 @@ pump_packets(struct xsk_socket_info *xsk, struct ubpf_vm *vm)
 			if (ret <= 0)
 				continue;
 			else
-				empty_rx /= 2;
+				empty_rx = 0;
 		}
 #endif
 

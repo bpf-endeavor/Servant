@@ -29,7 +29,7 @@ fi
 
 # Install htop
 sudo apt update
-sudo apt install -y htop
+sudo apt install -y htop build-essential
 
 # Configure tmux
 echo 'set -g default-terminal "xterm-256color"' | tee -a $HOME/.tmux.conf
