@@ -90,7 +90,3 @@ For list of heper functions defined look at `/src/include/servant_engine.h`
 | `userspace_update` | update a usersapce map |
 | `ubpf_get_time_ns` | read clock MONOTONIC value |
 | `ubpf_print` | print messages |
-
-## From Userspace to Kernel
-
-For allowing the eBPF program to send the packet back to the userspace
