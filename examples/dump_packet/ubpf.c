@@ -15,19 +15,19 @@
 #endif
 
 
-__attribute__((__always_inline__)) static inline
-int bpf_prog(struct pktctx *ctx);
+/* __attribute__((__always_inline__)) static inline */
+/* int bpf_prog(struct pktctx *ctx); */
 
 /**
  * Entry of the uBPF program
  */
-int batch_processing_entry(struct pktctxbatch *batch)
-{
-	for (int i = 0; i < batch->cnt; i++) {
-		batch->rets[i] = bpf_prog(&batch->pkts[i]);
-	}
-	return 0;
-}
+/* int batch_processing_entry(struct pktctxbatch *batch) */
+/* { */
+/* 	for (int i = 0; i < batch->cnt; i++) { */
+/* 		batch->rets[i] = bpf_prog(&batch->pkts[i]); */
+/* 	} */
+/* 	return 0; */
+/* } */
 
 int bpf_prog(struct pktctx *ctx)
 {

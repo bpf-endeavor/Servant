@@ -18,7 +18,7 @@
 #include "baked_in/internal_benchmarks.h"
 
 /* #define USE_POLL */
-#define SHOW_THROUGHPUT
+/* #define SHOW_THROUGHPUT */
 /* #define VM_CALL_BATCHING */
 
 #ifdef USE_POLL
