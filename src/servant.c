@@ -71,6 +71,10 @@ int main(int argc, char *argv[])
 		load_xdp_program(config.custom_kern_path, config.ifindex);
 	}
 	struct xsk_socket_info *xsk = setup_socket(config.ifname, config.qid);
+	if (!xsk) {
+		ERROR("Failed to create AF_XDP socket\n");
+		goto teardown;
+	}
 	/* ret = setup_map_system(config.ifindex); */
 	if (config.count_maps == 0) {
 		char *map_names[] = {
