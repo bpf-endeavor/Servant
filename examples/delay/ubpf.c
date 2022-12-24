@@ -13,30 +13,35 @@
 
 #define delay_cycles 0
 
+// #define SEND
+
 int bpf_prog(struct pktctx *ctx)
 {
-	/* struct ethhdr *eth = ctx->data; */
-	/* // Swap MAC */
-	/* unsigned char tmp; */
-	/* for (int i = 0; i < 6; i++) { */
-	/* 	tmp = eth->h_source[i]; */
-	/* 	eth->h_source[i] = eth->h_dest[i]; */
-	/* 	eth->h_dest[i] = tmp; */
-	/* } */
-	/* if (eth->h_proto == ubpf_htons(ETH_P_IP)) { */
-	/* 	struct iphdr *ip = (struct iphdr *)(eth + 1); */
-	/* 	// Swap IP */
-	/* 	uint32_t tmp_ip = ip->saddr; */
-	/* 	ip->saddr = ip->daddr; */
-	/* 	ip->daddr = tmp_ip; */
-	/* 	if (ip->protocol == IPPROTO_UDP) { */
-	/* 		struct udphdr *udp = (ctx->data + (sizeof(*eth) + (ip->ihl * 4))); */
-	/* 		// Swap port */
-	/* 		uint16_t tmp_port = udp->source; */
-	/* 		udp->source = udp->dest; */
-	/* 		udp->dest = tmp_port; */
-	/* 	} */
-	/* } */
+
+#ifdef SEND
+	struct ethhdr *eth = ctx->data;
+	// Swap MAC
+	unsigned char tmp;
+	for (int i = 0; i < 6; i++) {
+		tmp = eth->h_source[i];
+		eth->h_source[i] = eth->h_dest[i];
+		eth->h_dest[i] = tmp;
+	}
+	if (eth->h_proto == ubpf_htons(ETH_P_IP)) {
+		struct iphdr *ip = (struct iphdr *)(eth + 1);
+		// Swap IP
+		uint32_t tmp_ip = ip->saddr;
+		ip->saddr = ip->daddr;
+		ip->daddr = tmp_ip;
+		if (ip->protocol == IPPROTO_UDP) {
+			struct udphdr *udp = (ctx->data + (sizeof(*eth) + (ip->ihl * 4)));
+			// Swap port
+			uint16_t tmp_port = udp->source;
+			udp->source = udp->dest;
+			udp->dest = tmp_port;
+		}
+	}
+#endif
 
 	uint64_t begin = ubpf_rdtsc();
 	uint64_t now = begin;
@@ -53,7 +58,10 @@ int bpf_prog(struct pktctx *ctx)
 			now = ubpf_rdtsc();
 		}
 	}
+#ifdef SEND
+	return SEND;
+#else
 	return DROP;
-	/* return SEND; */
+#endif
 }
 
