@@ -15,8 +15,6 @@
 
 #include <time.h>
 
-#include "baked_in/internal_benchmarks.h"
-
 /* #define USE_POLL */
 /* #define SHOW_THROUGHPUT */
 /* #define VM_CALL_BATCHING */
@@ -114,11 +112,11 @@ int complete_tx(struct xsk_socket_info *xsk) {
  */
 static inline __attribute__((__always_inline__)) uint16_t
 poll_rx_queue(struct xsk_socket_info *xsk, struct xdp_desc **batch,
-    uint32_t cnt)
+		uint32_t cnt)
 {
-    uint32_t i;
-    uint32_t idx_rx;
-    uint32_t rcvd;
+	uint32_t i;
+	uint32_t idx_rx;
+	uint32_t rcvd;
 
 	/* const int poll_timeout = 1000; */
 	/* const int num_socks = 1; */
@@ -134,26 +132,26 @@ poll_rx_queue(struct xsk_socket_info *xsk, struct xdp_desc **batch,
 	/* 	ret = poll(fds, num_socks, poll_timeout); */
 	/* /1* } *1/ */
 
-    rcvd = xsk_ring_cons__peek(&xsk->rx, cnt, &idx_rx);
-    if (!rcvd) {
-        /* // There is no packets */
-        if (config.busy_poll ||
-                xsk_ring_prod__needs_wakeup(&xsk->umem->fq)) {
-            /* xsk->app_stats.rx_empty_polls++; */
-            recvfrom(xsk_socket__fd(xsk->xsk), NULL, 0, MSG_DONTWAIT,
-                    NULL, NULL);
-        }
-        return 0;
-    }
-    for (i = 0; i < rcvd; i++) {
-        struct xdp_desc *desc =
-            (struct xdp_desc *)xsk_ring_cons__rx_desc(&xsk->rx, idx_rx);
-        idx_rx++;
-        batch[i] = desc;
-    }
-    /* xsk_ring_cons__release(&xsk->rx, rcvd); */
-    /* xsk->ring_stats.rx_npkts += rcvd; */
-    return rcvd;
+	rcvd = xsk_ring_cons__peek(&xsk->rx, cnt, &idx_rx);
+	if (!rcvd) {
+		/* // There is no packets */
+		if (config.busy_poll ||
+				xsk_ring_prod__needs_wakeup(&xsk->umem->fq)) {
+			/* xsk->app_stats.rx_empty_polls++; */
+			recvfrom(xsk_socket__fd(xsk->xsk), NULL, 0, MSG_DONTWAIT,
+					NULL, NULL);
+		}
+		return 0;
+	}
+	for (i = 0; i < rcvd; i++) {
+		struct xdp_desc *desc =
+			(struct xdp_desc *)xsk_ring_cons__rx_desc(&xsk->rx, idx_rx);
+		idx_rx++;
+		batch[i] = desc;
+	}
+	/* xsk_ring_cons__release(&xsk->rx, rcvd); */
+	/* xsk->ring_stats.rx_npkts += rcvd; */
+	return rcvd;
 }
 
 /**
@@ -169,28 +167,28 @@ poll_rx_queue(struct xsk_socket_info *xsk, struct xdp_desc **batch,
 static inline
 uint32_t drop(struct xsk_socket_info *xsk, struct xdp_desc **batch, const uint32_t cnt)
 {
-    uint32_t idx_target = 0;
-    uint32_t i;
-    int ret;
-    ret = xsk_ring_prod__reserve(&xsk->umem->fq, cnt, &idx_target);
-    if (ret != cnt) {
-        if (ret < 0) {
-            ERROR("Failed to reserve packets on fill queue!\n");
-            exit(EXIT_FAILURE);
-        }
-	DEBUG("Failed to reserve packets on fill queue\n");
-        return 0;
-    }
+	uint32_t idx_target = 0;
+	uint32_t i;
+	int ret;
+	ret = xsk_ring_prod__reserve(&xsk->umem->fq, cnt, &idx_target);
+	if (ret != cnt) {
+		if (ret < 0) {
+			ERROR("Failed to reserve packets on fill queue!\n");
+			exit(EXIT_FAILURE);
+		}
+		DEBUG("Failed to reserve packets on fill queue\n");
+		return 0;
+	}
 
-    for (i = 0; i < cnt; i++) {
-        // Index of descriptors in the umem
-        uint64_t orig = xsk_umem__extract_addr(batch[i]->addr);
-        *xsk_ring_prod__fill_addr(&xsk->umem->fq, idx_target) = orig;
-        idx_target++;
-    }
-    xsk_ring_prod__submit(&xsk->umem->fq, cnt);
-    xsk_ring_cons__release(&xsk->rx, cnt);
-    return cnt;
+	for (i = 0; i < cnt; i++) {
+		// Index of descriptors in the umem
+		uint64_t orig = xsk_umem__extract_addr(batch[i]->addr);
+		*xsk_ring_prod__fill_addr(&xsk->umem->fq, idx_target) = orig;
+		idx_target++;
+	}
+	xsk_ring_prod__submit(&xsk->umem->fq, cnt);
+	xsk_ring_cons__release(&xsk->rx, cnt);
+	return cnt;
 }
 
 /**
@@ -205,30 +203,30 @@ uint32_t drop(struct xsk_socket_info *xsk, struct xdp_desc **batch, const uint32
  */
 uint32_t tx(struct xsk_socket_info *xsk, struct xdp_desc **batch, uint32_t cnt)
 {
-    uint32_t idx_target;
-    uint32_t i;
-    int ret;
-    ret = xsk_ring_prod__reserve(&xsk->tx, cnt, &idx_target);
-    if (ret != cnt) {
-        if (ret < 0) {
-            ERROR("Failed to reserve packets on tx queue!\n");
-            exit(EXIT_FAILURE);
-        }
-        DEBUG("FAILED to reserve packets on tx queue\n");
-        return 0;
-    }
+	uint32_t idx_target;
+	uint32_t i;
+	int ret;
+	ret = xsk_ring_prod__reserve(&xsk->tx, cnt, &idx_target);
+	if (ret != cnt) {
+		if (ret < 0) {
+			ERROR("Failed to reserve packets on tx queue!\n");
+			exit(EXIT_FAILURE);
+		}
+		DEBUG("FAILED to reserve packets on tx queue\n");
+		return 0;
+	}
 
-    for (i = 0; i < cnt; i++) {
-        // Index of descriptors in the umem
-        uint64_t orig = xsk_umem__extract_addr(batch[i]->addr);
-        xsk_ring_prod__tx_desc(&xsk->tx, idx_target)->addr = orig;
-        xsk_ring_prod__tx_desc(&xsk->tx, idx_target)->len = batch[i]->len;
-        idx_target++;
-    }
-    xsk->outstanding_tx += cnt;
-    xsk_ring_prod__submit(&xsk->tx, cnt);
-    xsk_ring_cons__release(&xsk->rx, cnt);
-    return cnt;
+	for (i = 0; i < cnt; i++) {
+		// Index of descriptors in the umem
+		uint64_t orig = xsk_umem__extract_addr(batch[i]->addr);
+		xsk_ring_prod__tx_desc(&xsk->tx, idx_target)->addr = orig;
+		xsk_ring_prod__tx_desc(&xsk->tx, idx_target)->len = batch[i]->len;
+		idx_target++;
+	}
+	xsk->outstanding_tx += cnt;
+	xsk_ring_prod__submit(&xsk->tx, cnt);
+	xsk_ring_cons__release(&xsk->rx, cnt);
+	return cnt;
 }
 
 static inline void
@@ -485,8 +483,6 @@ pump_packets(struct xsk_socket_info *xsk, struct ubpf_vm *vm)
 			/* uint64_t start_ts = readTSC(); */
 
 			ret = fn(&pktctx, sizeof(pktctx));
-			/* ret = memcpy_bpf_prog(&pktctx); */
-			/* ret = pktproc_bpf_prog(&pktctx); */
 
 			/* uint64_t end_ts = readTSC(); */
 			/* calc_latency_from_ts(start_ts, end_ts); */

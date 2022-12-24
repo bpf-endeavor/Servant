@@ -101,187 +101,25 @@
 /* 	} */
 /* } */
 
-
-// vip's definition for lookup
-struct vip_definition {
-	union {
-		uint32_t vip;
-		uint32_t vipv6[4];
-	};
-	uint16_t port;
-	uint8_t proto;
-};
-
-// result of vip's lookup
-struct vip_meta {
-	uint32_t flags;
-	uint32_t vip_num;
-};
-
-struct real_definition {
-  union {
-    uint32_t dst;
-    uint32_t dstv6[4];
-  };
-  uint8_t flags;
-};
-
-// value for ctl array, could contain e.g. mac address of default router
-// or other flags
-struct ctl_value {
-  union {
-    uint64_t value;
-    uint32_t ifindex;
-    uint8_t mac[6];
-  };
-};
-
-// flow metadata
-struct flow_key {
-  union {
-    uint32_t src;
-    uint32_t srcv6[4];
-  };
-  union {
-    uint32_t dst;
-    uint32_t dstv6[4];
-  };
-  union {
-    uint32_t ports;
-    uint16_t port16[2];
-  };
-  uint8_t proto;
-};
-
-// where to send client's packet from LRU_MAP
-struct real_pos_lru {
-  uint32_t pos;
-  uint64_t atime;
-};
-
 int launch_userspace_maps_server(struct server_conf *config)
 {
+	/* TODO: create a service with REST or GRPC api for modifying the userspace maps */
 	/* pthread_t t; */
 	/* return pthread_create(&t, NULL, listener, (void *)config); */
 
-	/* Initialize maps HARDCODED */
+	/* Example of accessing the userspace maps from control plane */
+	/*
 	struct ubpf_map *m;
 	void *p = NULL;
 	int zero = 0;
 
-	/* For a test */
 	m = ubpf_select_map("test_map", config->vm);
 	if (m) {
 		int key = 365;
 		int val = 7460;
 		ubpf_update_map(m, &key, &val);
 	}
-
-	/* For hash_map bench */
-	m = ubpf_select_map("hash_map", config->vm);
-	if (m) {
-		struct { char obj[8]; } key, val;
-		for (int i = 0; i < 128; i++) {
-			*(int *)(&key.obj) = i;
-			ubpf_update_map(m, &key, &val);
-		}
-	}
-
-	/* for Katran */
-	const int vip_num = 0;
-	struct real_definition real = {
-		.dst = htonl(0xc0a80101), // 192.168.1.1
-		.flags = 0, // TODO: what should it be?
-	};
-	/* Initialize stats */
-	m = ubpf_select_map("stats", config->vm);
-	if (m) {
-		p = ubpf_lookup_map(m, &zero);
-		INFO("stats[0] %p\n", p);
-	} else {
-		INFO("Warning: stats map not found!\n");
-	}
-
-	/* Add a new vip */
-	m = ubpf_select_map("vip_map", config->vm);
-	if (m) {
-		struct vip_definition vdef = {};
-		vdef.vip = htonl(0xc0a8010a); // 192.168.1.10
-		vdef.port = htons(8080);
-		vdef.proto = IPPROTO_UDP;
-		/* const int flags = 1; // NO_SPORT (reading from grpc client) */
-		const int flags = 0; // TODO: what should it be?
-		struct vip_meta meta;
-		meta.vip_num = vip_num;
-		meta.flags = flags;
-		ubpf_update_map(m, &vdef, &meta);
-		INFO("Add vip %x %d %d\n", vdef.vip, vdef.port, vdef.proto);
-		/* void *p = ubpf_lookup_map(m, &vdef); */
-		/* INFO("looking up the new pointer %p\n", p); */
-	} else {
-		INFO("Warning: vip_map map not found!\n");
-	}
-
-	/* Add a new real */
-	m = ubpf_select_map("reals", config->vm);
-	if (m) {
-		int real_num = 0;
-		ubpf_update_map(m, &real_num, &real);
-		INFO("Add a real 192.168.1.1\n");
-	} else {
-		INFO("Warning: reals map not found!\n");
-	}
-
-	/* Add a real to vip */
-	m = ubpf_select_map("ch_rings", config->vm);
-	if (m) {
-		const int ch_ring_size = 65537;
-		const int pos = 0;
-		int ch_rings_key = vip_num * ch_ring_size + pos;
-		ubpf_update_map(m, &ch_rings_key, &real.dst);
-		INFO("Add real to vip\n");
-	} else {
-		INFO("Warning: ch_rings map not found!\n");
-	}
-
-	/* Configure default MAC address */
-	m = ubpf_select_map("ctl_array", config->vm);
-	if (m) {
-		int ctl_array_index = 0;
-		struct ctl_value ctl_val = {
-			/* .mac = {0x3c,0xfd,0xfe,0x56,0x05,0x42}, */
-			/* .mac = {0x3c,0xfd,0xfe,0x56,0x12,0x82}, // Gateway or the other machines mac */
-			.mac = {0x3c,0xfd,0xfe,0x55,0xff,0x62}, // Gateway or the other machines mac
-		};
-		ubpf_update_map(m, &ctl_array_index, &ctl_val);
-		INFO("Updated default mac address\n");
-	} else {
-		INFO("Warning: ctl_array map not found!\n");
-	}
-
-	/* Configure LRU mapping */
-	/* I am using Hash map instead of LRU_HASH */
-	m = ubpf_select_map("lru_mapping", config->vm);
-	if (m) {
-		int count_cores = 1;
-		struct ubpf_map_def map_def = {
-			.type = UBPF_MAP_TYPE_HASHMAP, // not LRU?
-			.key_size = sizeof(struct flow_key),
-			.value_size = sizeof(struct real_pos_lru),
-			.max_entries = 10000,
-			.nb_hash_functions = 0,
-		};
-		for (int c = 0; c < count_cores; c++) {
-			// TODO: create a new map need uBPF api
-			char name[9];
-			snprintf(name, 8, "lru%d", c);
-			void *new_map = ubpf_create_map(name, &map_def, config->vm);
-			ubpf_update_map(m, &c, &new_map);
-			INFO("Add a Hash map for core %d\n", c);
-		}
-	} else {
-		INFO("Warning: lru_mapping map not found!\n");
-	}
+	*/
 
 	return 0;
 }
