@@ -86,3 +86,4 @@ loader
 *.ll
 
 _deps/
+tags

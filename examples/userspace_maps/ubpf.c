@@ -6,14 +6,6 @@
 #define KEY 365
 #define VAL 7460
 
-struct ubpf_map_def test_map = {
-	.type = UBPF_MAP_TYPE_HASHMAP,
-	.key_size = sizeof(int),
-	.value_size = sizeof(long long int),
-	.max_entries = 100,
-	.nb_hash_functions = 0,
-};
-
 struct ubpf_map_def count_map = {
 	.type = UBPF_MAP_TYPE_HASHMAP,
 	.key_size = sizeof(uint32_t),
@@ -22,18 +14,18 @@ struct ubpf_map_def count_map = {
 	.nb_hash_functions = 0,
 };
 
-__attribute__((__always_inline__)) static inline
-int bpf_prog(struct pktctx *ctx);
+/* __attribute__((__always_inline__)) static inline */
+/* int bpf_prog(struct pktctx *ctx); */
 
 /**
  * Entry of the uBPF program
  */
-int batch_processing_entry(struct pktctxbatch *batch)
-{
-	for (int i = 0; i < batch->cnt; i++)
-		batch->rets[i] = bpf_prog(&batch->pkts[i]);
-	return 0;
-}
+/* int batch_processing_entry(struct pktctxbatch *batch) */
+/* { */
+/* 	for (int i = 0; i < batch->cnt; i++) */
+/* 		batch->rets[i] = bpf_prog(&batch->pkts[i]); */
+/* 	return 0; */
+/* } */
 
 __attribute__((__always_inline__)) static inline
 void swap_mac(struct ethhdr *eth)
@@ -46,7 +38,6 @@ void swap_mac(struct ethhdr *eth)
 	}
 }
 
-__attribute__((__always_inline__)) static inline
 int bpf_prog(struct pktctx *pkt) {
 	struct ethhdr *eth  = pkt->data;
 	int one = 1;
@@ -60,15 +51,9 @@ int bpf_prog(struct pktctx *pkt) {
 			return DROP;
 		}
 		*count = *count + 1;
+		DUMP("Packet: %d\n", *count);
 		swap_mac(eth);
 		return SEND;
 	}
-	/* const int key = KEY; */
-	/* int * val = userspace_lookup(&test_map, &key); */
-	/* if (val != NULL && *val == VAL) { */
-	/* 	DUMP("Test passed\n"); */
-	/* 	return DROP; */
-	/* } */
-	/* DUMP("Test failed\n"); */
 	return DROP;
 }
