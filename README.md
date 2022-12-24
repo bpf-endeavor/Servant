@@ -33,8 +33,10 @@ You can install Servant's header with `make install`.
 | ifname | name of the ethernet interface to attach |
 | qid | queue index for attaching AF\_XDP |
 | ebpf | path to the ebpf program binary to load |
-| [map] | name of the in kernel map which eBPF program want to access you can also assign the map an index using "name:idnex". This index could be used with `lookup_fast` helper function.|
+| [map] | name of the in kernel map which eBPF program want to access you can also assign the map an index using "name:index". This index could be used with `lookup_fast` helper function.|
 | [core] | pin the process to the given CPU core |
+| [xdp-prog] | path to the XDP program. this program should have a map of type `BPF_MAP_TYPE_XSKMAP` named `xsks_map`|
+| [busypoll] | run AF\_XDP in busy-polling mode |
 | [...] | there are other options (to be complete) |
 
 ## Run an example program
@@ -50,13 +52,14 @@ make
 sudo ../../src/servant <ifce> 2 ./ubpf.o
 ```
 
-Generate traffic toward the uBPF program. The packest should be diplayed on the
+Generate traffic toward the uBPF program. The packets should be displayed on the
 terminal.
 
-On the other machine start a netcat and send udp traffic.
+On the other machine start a netcat and send UDP traffic.
 
 ```bash
 nc -u <ip address of first machine> 8080
+hello
 ```
 
 Out put of uBPF program should be like below
@@ -111,13 +114,13 @@ The eBPF program should return one of the following values.
 1. `DROP`: Drop the packet.
 1. `SEND`: Send the packet on the attached ethernet interface.
 
-> Currently destination of packets injected to the kenrel (`PASS`) are hardcoded but this can be solved and is not a limitation.
+> Currently destination of packets injected to the kernel (`PASS`) are hard-coded but this can be solved and is not a limitation.
 > Look at `/src/udp_sock.c`
 
 
 ## eBPF Program Helpers
 
-For list of heper functions defined look at `/src/include/servant_engine.h`
+For list of helper functions defined look at `/src/include/servant_engine.h`
 
 | Helper | Description |
 |--------|-------------|
