@@ -13,7 +13,7 @@ processing programs that run in usersapce.
 * libbpf (commit: f9f6e92458899fee5d3d6c62c645755c25dd502d)
 * llvm 13
 
-You can look at `/docs/setup_cloudlab.sh`
+You can look at `/setup.sh`
 
 
 **Compile:**
@@ -37,9 +37,46 @@ You can install Servant's header with `make install`.
 | [core] | pin the process to the given CPU core |
 | [...] | there are other options (to be complete) |
 
+## Run an example program
+
+There are some example programs at `/examples`.
+
+```bash
+# map incomming ipv4/udp traffic with destination port of 8080 to queue 2
+sudo ethtool -U <iface> flow-type udp4 dst-port 8080 action 2
+cd ./examples/dump_packet
+make
+# Run the eBPF program with an AF_XDP socket connected on queue 2
+sudo ../../src/servant <ifce> 2 ./ubpf.o
+```
+
+Generate traffic toward the uBPF program. The packest should be diplayed on the
+terminal.
+
+On the other machine start a netcat and send udp traffic.
+
+```bash
+nc -u <ip address of first machine> 8080
+```
+
+Out put of uBPF program should be like below
+
+```
+...
+Packet size: 60
+Src MAC: 3c:fd:fe:56:1:a2
+Dest MAC: 3c:fd:fe:55:ff:42
+Ether Type: 800
+Src IP: c0a80102
+Dst IP: c0a80101
+Transport: UDP
+Src PORT: 57300
+Dst PORT: 8080
+...
+```
+
 ## Example eBPF Program
 
-There are some examples at `/src/examples`.
 
 The structure of the program looks like below.
 
