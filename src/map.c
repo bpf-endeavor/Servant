@@ -13,6 +13,10 @@
 #include "log.h"
 
 
+#ifndef BPF_F_MMAPABLE
+#define BPF_F_MMAPABLE (1U << 10)
+#endif
+
 /* hash map */
 /* #include "../deps/c-hashmap/map.h" */
 
