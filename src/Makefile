@@ -1,4 +1,4 @@
-CC = clang-13
+CC = clang
 # CC = gcc
 # CFLAGS = -g -O0 -Wall
 CFLAGS = -O2 -g -Wall -march=x86-64-v3 -I ../deps/
@@ -24,8 +24,7 @@ clean:
 
 INCDIR = /usr/include/servant
 install:
-	@echo currently the binary is not installed
-	@echo only the header files are installed!
 	@echo "header install dir: $(INCDIR)"
+	sudo ln -s $(CURDIR)/servant /usr/bin/servant
 	sudo mkdir -p $(INCDIR)
 	sudo cp include/* $(INCDIR)

@@ -16,7 +16,7 @@
 #include <time.h>
 
 /* #define USE_POLL */
-/* #define SHOW_THROUGHPUT */
+#define SHOW_THROUGHPUT
 /* #define VM_CALL_BATCHING */
 
 #ifdef USE_POLL

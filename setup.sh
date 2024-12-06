@@ -66,9 +66,9 @@ echo `whereis libbpf` | awk '{print $2}' | xargs dirname | sudo tee /etc/ld.so.c
 sudo ldconfig
 log "- libbpf"
 # llvm13
-cd $CURDIR/docs/
-sudo bash ./llvm.sh
-log "- LLVM 13"
+# cd $CURDIR/docs/
+# sudo bash ./llvm.sh
+# log "- LLVM 13"
 # Servant
 cd $CURDIR
 git submodule update --init
