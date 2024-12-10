@@ -233,7 +233,8 @@ int launch_userspace_maps_server(struct server_conf *config)
 		ubpf_update_map(m, &key, &val);
 	}
 	*/
-	__configure_katran_maps(config->vm);
+
+	/* __configure_katran_maps(config->vm); */
 
 	return 0;
 }

@@ -5,6 +5,7 @@
 #define PASS 100
 #define DROP 200
 #define SEND 300
+#define YIELD 400
 
 // Context parameter type
 struct pktctx {

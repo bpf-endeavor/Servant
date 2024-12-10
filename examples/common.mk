@@ -1,5 +1,5 @@
-CLANG ?= clang-13
-LLC ?= llc-13
+CLANG ?= clang
+LLC ?= llc
 CC := gcc
 KERN_OBJECTS ?=
 USER_OBJECTS ?=

@@ -25,6 +25,6 @@ clean:
 INCDIR = /usr/include/servant
 install:
 	@echo "header install dir: $(INCDIR)"
-	sudo ln -s $(CURDIR)/servant /usr/bin/servant
+	if [ ! -f /usr/bin/servant ]; then sudo ln -s $(CURDIR)/servant /usr/bin/servant; fi
 	sudo mkdir -p $(INCDIR)
 	sudo cp include/* $(INCDIR)
