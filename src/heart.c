@@ -284,7 +284,7 @@ apply_action(struct xsk_socket_info *xsk, struct xdp_desc *desc, int action)
 	} else if (action == YIELD) {
 
 	} else {
-		DEBUG("Unknown Action\n");
+		DEBUG("Unknown Action (%d)\n", action);
 	}
 }
 

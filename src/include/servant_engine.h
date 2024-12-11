@@ -42,24 +42,23 @@ typedef char              int8_t;
 # error "Endianness detection needs to be set up for your compiler?!"
 #endif
 
-// Map access functions
+// In kernel map access functions
 static void *(*lookup)(char *name, const void *key) = (void *)1;
-static void *(*lookup_fast)(int index, const void *key_ptr) = (void *)10;
-static int (*free_elem)(void *ptr) = (void *)3;
+static void *(*lookup_fast)(int index, const void *key_ptr) = (void *)2;
 /* For debugging */
-static void (*ubpf_print)(char *fmt, ...) = (void *)4;
+static void (*ubpf_print)(char *fmt, ...) = (void *)3;
 /* For reading timestamp CPU */
-static unsigned long int (*ubpf_rdtsc)(void) = (void *)5;
+static unsigned long int (*ubpf_rdtsc)(void) = (void *)4;
 /* memmove */
-static void (*ubpf_memmove)(void *d, void *s, uint32_t n) = (void *)6;
+static void (*ubpf_memmove)(void *d, void *s, uint32_t n) = (void *)5;
 /* Userspace Maps */
-static void *(*userspace_lookup)(const void *, const void *) = (void *)7;
-static int (*userspace_update)(void *, const void *, void *) = (void *)8;
+static void *(*userspace_lookup)(const void *, const void *) = (void *)6;
+static int (*userspace_update)(void *, const void *, void *) = (void *)7;
 /* Get time in nanosecond */
-static uint64_t (*ubpf_time_get_ns)(void) = (void *)9;
+static uint64_t (*ubpf_time_get_ns)(void) = (void *)8;
 /* Prototyping splitting */
-static int (*userspace_lookup_p1)(const void *, const void *) = (void *)12;
-static void *(*userspace_lookup_p2)(const void *, const void *) = (void *)13;
+static int (*userspace_lookup_p1)(const void *, const void *) = (void *)9;
+static void *(*userspace_lookup_p2)(const void *, const void *) = (void *)10;
 
 // This macro helps with printing things from uBPF
 #define DUMP(x, args...) { char fmt[] = x; ubpf_print((char *)fmt, ##args); } 

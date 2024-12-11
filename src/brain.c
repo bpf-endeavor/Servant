@@ -37,15 +37,15 @@ _ubpf_lookup_map(struct ubpf_map *m, void *k)
 	return ubpf_lookup_map(m, k);
 }
 
-static int _ubpf_lookup_map_p1(const void *m, const void *k)
-{
-	return ubpf_lookup_map_p1(m, k);
-}
+/* int _ubpf_lookup_map_p1(const void *m, const void *k) */
+/* { */
+/* 	return ubpf_lookup_map_p1(m, k); */
+/* } */
 
-static void *_ubpf_lookup_map_p2(const void *m, void *k)
-{
-	return ubpf_lookup_map_p2(m, k);
-}
+/* void *_ubpf_lookup_map_p2(const void *m, void *k) */
+/* { */
+/* 	return ubpf_lookup_map_p2(m, k); */
+/* } */
 
 static inline int __attribute__((always_inline))
 _ubpf_update_map(struct ubpf_map *m, void *k, void *v)
@@ -63,34 +63,53 @@ ubpf_time_get_ns(void)
 	return (uint64_t)(spec.tv_sec) * (uint64_t)1000000000 + (uint64_t)(spec.tv_nsec);
 }
 
+typedef struct {
+	char *name;
+	void *fn;
+} helper_t;
+
 /**
  * Register the supported functions in the virtual machine
  */
 static void
 register_engine_functions(struct ubpf_vm *vm)
 {
-	/* Access Kernel maps */
-	ubpf_register(vm, 1, "ubpf_map_lookup_elem_kern", ubpf_map_lookup_elem_kern);
-	ubpf_register(vm, 2, "ubpf_map_update_elem_kern", ubpf_map_update_elem_kern);
-	ubpf_register(vm, 3, "ubpf_map_elem_release", ubpf_map_elem_release);
-	ubpf_register(vm, 10, "ubpf_map_lookup_elem_kern_fast", ubpf_map_lookup_elem_kern_fast);
-	/* printf for debugging */
-	ubpf_register(vm, 4, "printf", printf);
-	/* get the CPU timestamp counter */
-	ubpf_register(vm, 5, "rdtsc", readTSC);
-	/* memmove */
-	ubpf_register(vm, 6, "ubpf_memmove", _memmove);
-	/* Userspace maps (From uBPF library) */
-	ubpf_register(vm, 7, "ubpf_map_lookup_elem_userspace", _ubpf_lookup_map);
-	ubpf_register(vm, 8, "ubpf_map_update_elem_userspace", _ubpf_update_map);
-	/* get time in ns */
-	ubpf_register(vm, 9, "ubpf_time_get_ns", ubpf_time_get_ns);
-	/* unwind */
-	ubpf_register(vm, 11, "unwind", unwind);
-	ubpf_set_unwind_function_index(vm, 11);
-
-	ubpf_register(vm, 12, "ubpf_map_lookup_elem_userspace_p1", _ubpf_lookup_map_p1);
-	ubpf_register(vm, 13, "ubpf_map_lookup_elem_userspace_p2", _ubpf_lookup_map_p2);
+	helper_t list[] = {
+		/* Access Kernel maps */
+		{"_kern_lookup", ubpf_map_lookup_elem_kern},
+		{"_kern_fast_lookup", ubpf_map_lookup_elem_kern_fast},
+		/* printf for debugging */
+		{"printf", printf},
+		/* get the CPU timestamp counter */
+		{"rdtsc", readTSC},
+		/* memmove */
+		{"ubpf_memmove", _memmove},
+		/* Userspace maps (From uBPF library) */
+		{"_userspace_lookup", _ubpf_lookup_map},
+		{"_userspace_update", _ubpf_update_map},
+		/* get time in ns */
+		{"ubpf_time_get_ns", ubpf_time_get_ns},
+		/* Two phase lookup */
+		{"_userspace_p1", ubpf_lookup_map_p1},
+		{"_userspace_p2", ubpf_lookup_map_p2},
+	};
+	const size_t cnt = sizeof(list) /  sizeof(helper_t);
+	int i = 0, ret;
+	for (; i < cnt; i++) {
+		helper_t *h = &list[i];
+		ret = ubpf_register(vm, i+1, h->name, h->fn);
+		if (ret != 0) {
+			ERROR("Failed to register helper funciton with VM (%s)\n", h->name);
+			return;
+		}
+	}
+	/* unwind */ /* NOTE: keep this the last one */
+	ret = ubpf_register(vm, i, "unwind", unwind);
+	if (ret != 0) {
+		ERROR("Failed to register unwind function\n");
+		return;
+	}
+	ubpf_set_unwind_function_index(vm, i);
 }
 
 /**
