@@ -104,12 +104,12 @@ register_engine_functions(struct ubpf_vm *vm)
 		}
 	}
 	/* unwind */ /* NOTE: keep this the last one */
-	ret = ubpf_register(vm, i, "unwind", unwind);
+	ret = ubpf_register(vm, i+1, "unwind", unwind);
 	if (ret != 0) {
 		ERROR("Failed to register unwind function\n");
 		return;
 	}
-	ubpf_set_unwind_function_index(vm, i);
+	ubpf_set_unwind_function_index(vm, i+1);
 }
 
 /**

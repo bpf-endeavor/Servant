@@ -54,27 +54,41 @@ int heavy_processing(struct pktctx *pkt)
 	return b;
 }
 
-int bpf_prog(struct pktctx *pkt) {
+int p1(struct pktctx *pkt)
+{
 	int ret;
 	flow_t flow;
 
 	ret = heavy_processing(pkt);
 	if (ret == 1243) {
-		ubpf_print("unexpected fibonacci number\n");
+		DUMP("unexpected fibonacci number\n");
 	}
 
-	if (parse_flow(pkt, &flow) != 0)
+	if (parse_flow(pkt, &flow) != 0) {
+		DUMP("Failed to parse flow\n");
 		return DROP;
+	}
+
+	/* DUMP("[*] flow: %d:%d   %d:%d\n", */
+	/* 		flow.src_ip, ubpf_ntohs(flow.src_port), */
+	/* 		flow.dst_ip, ubpf_ntohs(flow.dst_port)); */
 	ret = userspace_lookup_p1(&table, &flow);
 	if (ret != 0) {
-		ubpf_print("Failed to perform phase 1 of lookup\n");
+		DUMP("Failed to perform phase 1 of lookup (ret:%d)\n", ret);
 		return DROP;
 	}
 	return YIELD;
 }
 
-int bpf_prog_phase2(struct pktctx *pkt) {
+int p2(struct pktctx *pkt)
+{
+	/* return DROP; */
 	flow_t flow;
+	if (parse_flow(pkt, &flow) != 0) {
+		DUMP("Failed to parse flow\n");
+		return DROP;
+	}
+
 	val_t *val;
 	val = userspace_lookup_p2(&table, &flow);
 	if (val == NULL) {
@@ -82,11 +96,32 @@ int bpf_prog_phase2(struct pktctx *pkt) {
 			.index = 1,
 			.timestamp = 1234,
 		};
+		/* DUMP("update flow: %d:%d   %d:%d\n", */
+		/* 	flow.src_ip, ubpf_ntohs(flow.src_port), */
+		/* 	flow.dst_ip, ubpf_ntohs(flow.dst_port)); */
 		userspace_update(&table, &flow, &v);
 		return DROP;
 	}
 	if (val->index != 1) {
-		ubpf_print("unexpected value\n");
+		DUMP("unexpected value (@%p, i: %d)\n", val, val->index);
+		/* val = userspace_lookup(&table, &flow); */
+		/* if (val == NULL) { */
+		/* 	DUMP("very unexpected! the normal lookup failed\n"); */
+		/* 	DUMP("flow: %d:%d   %d:%d\n", */
+		/* 		flow.src_ip, ubpf_ntohs(flow.src_port), */
+		/* 		flow.dst_ip, ubpf_ntohs(flow.dst_port)); */
+		/* 	val_t v = { */
+		/* 		.index = 1, */
+		/* 		.timestamp = 1234, */
+		/* 	}; */
+		/* 	ret = userspace_update(&table, &flow, &v); */
+		/* 	if (ret != 0) { */
+		/* 		DUMP("failed to update the map!\n"); */
+		/* 	} */
+		/* 	return DROP; */
+		/* } */
+		/* DUMP("actual lookup (@%p, i: %d)\n", val, val->index); */
 	}
+	/* DUMP("success\n"); */
 	return DROP;
 }

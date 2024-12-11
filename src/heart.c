@@ -426,9 +426,9 @@ pump_packets(struct xsk_socket_info *xsk, struct ubpf_vm *vm)
 	/* -1: not yielding.
 	 * i >= 0: received yield at the i-th position of chain
 	 * */
-	int yield_state[cnt];
-	int fn_counter = 0; /* Indicates the progress we made in the chain */
-	int has_yield = 0;
+	uint8_t yield_state[cnt];
+	uint8_t fn_counter = 0; /* Indicates the progress we made in the chain */
+	uint8_t has_yield = 0;
 
 	for(;;) {
 		if (config.terminate)
@@ -466,10 +466,8 @@ pump_packets(struct xsk_socket_info *xsk, struct ubpf_vm *vm)
 		/* } */
 
 		/* Received a new batch of packets. reset the state */
-		memset(yield_state, -1, rx);
+		memset(yield_state, 0, rx);
 		fn_counter = 0;
-		has_yield = 0;
-
 #ifdef VM_CALL_BATCHING
 		/* Perpare batch */
 		pkt_batch.cnt = rx;
@@ -496,49 +494,46 @@ pump_packets(struct xsk_socket_info *xsk, struct ubpf_vm *vm)
 				sent_count++;
 #endif
 #else
-next_fn_stage:
-		for (int i = 0; i < rx; i++) {
-			if (fn_counter != 0 && yield_state[i] == -1) {
-				/* this packet has not yielded */
-				continue;
-			}
+		do {
+			has_yield = 0;
+			for (int i = 0; i < rx; i++) {
+				if (fn_counter != yield_state[i]) {
+					/* this packet has not yielded */
+					DEBUG("Skipping... %d!=%d\n", fn_counter, yield_state[i]);
+					continue;
+				}
 
-			uint64_t addr = batch[i]->addr;
-			addr = xsk_umem__add_offset_to_addr(addr);
-			size_t ctx_len = batch[i]->len;
-			void *ctx = xsk_umem__get_data(xsk->umem->buffer, addr);
-			pktctx.data = ctx;
-			pktctx.data_end = ctx + ctx_len;
-			pktctx.pkt_len = ctx_len;
-			pktctx.trim_head = 0;
-			/* uint64_t start_ts = readTSC(); */
+				uint64_t addr = batch[i]->addr;
+				addr = xsk_umem__add_offset_to_addr(addr);
+				size_t ctx_len = batch[i]->len;
+				void *ctx = xsk_umem__get_data(xsk->umem->buffer, addr);
+				pktctx.data = ctx;
+				pktctx.data_end = ctx + ctx_len;
+				pktctx.pkt_len = ctx_len;
+				pktctx.trim_head = 0;
+				/* uint64_t start_ts = readTSC(); */
 
-			ret = fn[fn_counter](&pktctx, sizeof(pktctx));
+				ubpf_set_batch_offset(i);
+				ret = fn[fn_counter](&pktctx, sizeof(pktctx));
 
-			/* uint64_t end_ts = readTSC(); */
-			/* calc_latency_from_ts(start_ts, end_ts); */
-			batch[i]->len = pktctx.pkt_len;
-			batch[i]->addr += pktctx.trim_head;
-			apply_action(xsk, batch[i], ret);
-			if (ret == YIELD) {
-				yield_state[i] = fn_counter;
-				has_yield = 1;
-			} else {
-				/* Did not yielded */
-				yield_state[i] = -1;
-			}
+				/* uint64_t end_ts = readTSC(); */
+				/* calc_latency_from_ts(start_ts, end_ts); */
+				batch[i]->len = pktctx.pkt_len;
+				batch[i]->addr += pktctx.trim_head;
+				if (ret == YIELD) {
+					yield_state[i] = fn_counter + 1;
+					has_yield = 1;
+				} else {
+					apply_action(xsk, batch[i], ret);
+				}
 #ifdef SHOW_THROUGHPUT
-			/* DEBUG("action: %d\n", ret); */
-			if (ret == SEND)
-				sent_count++;
+				/* DEBUG("action: %d\n", ret); */
+				if (ret == SEND)
+					sent_count++;
 #endif
-		}
-
-		if (has_yield) {
+			}
 			fn_counter++;
-			if (fn_counter < config.yield_sz)
-				goto next_fn_stage;
-		}
+		} while(has_yield && fn_counter < config.yield_sz);
 #endif
 
 #ifdef SHOW_THROUGHPUT

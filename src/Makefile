@@ -1,7 +1,7 @@
 CC = clang
 # CC = gcc
 # CFLAGS = -g -O0 -Wall
-CFLAGS = -O2 -g -Wall -march=x86-64-v3 -I ../deps/
+CFLAGS = -O2 -g -Wall -I ../deps/
 LDFLAGS = -lbpf -lubpf -lm -lpthread -lrt
 
 OBJS = servant.o sockets.o heart.o brain.o config.o service_stats.o log.o \
