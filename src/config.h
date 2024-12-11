@@ -6,6 +6,7 @@
 
 #include "labels.h"
 
+#define MAX_NUM_PROGS 2
 struct config {
     int terminate;
     // Ring Configuration
@@ -31,6 +32,7 @@ struct config {
     // uBPF Engine Config
     char *ebpf_program_path;
     uint32_t jitted;
+    uint32_t yield_sz;
     // Custom Kernel
     int custom_kern_prog;
     char *custom_kern_path;

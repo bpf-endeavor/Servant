@@ -22,7 +22,7 @@ void usage(char *prog_name)
             "Options:\n"
             "\t num-frames, frame-size, batch-size,rx-size, tx-size,\n"
             "\t copy-mode, skb-mode, xdp-prog, no-jit [disabled], uth,\n"
-            "\t busypoll, packet-injection, map, core\n"
+            "\t busypoll, packet-injection, map, core, num-prog\n"
             );
     printf(desc, prog_name);
 }
@@ -30,6 +30,7 @@ void usage(char *prog_name)
 
 void parse_args(int argc, char *argv[])
 {
+    int tmp;
     /* Default Values */
     config.frame_size = 2048;
     config.frame_shift = log2(config.frame_size);
@@ -43,6 +44,7 @@ void parse_args(int argc, char *argv[])
     config.copy_mode = XDP_ZEROCOPY;
     config.xdp_mode = XDP_FLAGS_DRV_MODE;
     config.jitted = 1;
+    config.yield_sz = 1;
     /* Set when using custom XDP program */
     config.custom_kern_prog = 0;
     config.custom_kern_path = NULL;
@@ -70,7 +72,8 @@ void parse_args(int argc, char *argv[])
         BUSY_POLLING,
         PACKET_INJECTION,
         MAP,
-        CORE
+        CORE,
+        NUM_PROG,
     };
     struct option long_opts[] = {
         {"help", no_argument, NULL, HELP},
@@ -88,6 +91,7 @@ void parse_args(int argc, char *argv[])
         {"packet-injection", no_argument, NULL, PACKET_INJECTION},
         {"map", required_argument, NULL, MAP},
         {"core", required_argument, NULL, CORE},
+        {"num-prog", required_argument, NULL, NUM_PROG},
         {NULL, 0, NULL, 0},
     };
     int ret;
@@ -151,6 +155,16 @@ void parse_args(int argc, char *argv[])
 
                     }
                     config.core = tmp;
+                }
+                break;
+            case NUM_PROG:
+                tmp = atoi(optarg);
+                if (tmp < 1) {
+                    ERROR("Number of programs (--num-prog) can not be less than one\n");
+                } else if (tmp > MAX_NUM_PROGS) {
+                    ERROR("Number of programs (--num-prog) can not be more than %d\n", MAX_NUM_PROGS);
+                } else {
+                    config.yield_sz = tmp;
                 }
                 break;
             default:

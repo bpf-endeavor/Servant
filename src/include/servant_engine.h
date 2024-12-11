@@ -58,8 +58,8 @@ static int (*userspace_update)(void *, const void *, void *) = (void *)8;
 /* Get time in nanosecond */
 static uint64_t (*ubpf_time_get_ns)(void) = (void *)9;
 /* Prototyping splitting */
-static int (*userspace_lookup_p1)(const void *, const void *) = (void *)11;
-static void *(*userspace_lookup_p2)(const void *, const void *) = (void *)12;
+static int (*userspace_lookup_p1)(const void *, const void *) = (void *)12;
+static void *(*userspace_lookup_p2)(const void *, const void *) = (void *)13;
 
 // This macro helps with printing things from uBPF
 #define DUMP(x, args...) { char fmt[] = x; ubpf_print((char *)fmt, ##args); } 

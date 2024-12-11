@@ -37,6 +37,16 @@ _ubpf_lookup_map(struct ubpf_map *m, void *k)
 	return ubpf_lookup_map(m, k);
 }
 
+static int _ubpf_lookup_map_p1(const void *m, const void *k)
+{
+	return ubpf_lookup_map_p1(m, k);
+}
+
+static void *_ubpf_lookup_map_p2(const void *m, void *k)
+{
+	return ubpf_lookup_map_p2(m, k);
+}
+
 static inline int __attribute__((always_inline))
 _ubpf_update_map(struct ubpf_map *m, void *k, void *v)
 {
@@ -78,6 +88,9 @@ register_engine_functions(struct ubpf_vm *vm)
 	/* unwind */
 	ubpf_register(vm, 11, "unwind", unwind);
 	ubpf_set_unwind_function_index(vm, 11);
+
+	ubpf_register(vm, 12, "ubpf_map_lookup_elem_userspace_p1", _ubpf_lookup_map_p1);
+	ubpf_register(vm, 13, "ubpf_map_lookup_elem_userspace_p2", _ubpf_lookup_map_p2);
 }
 
 /**
@@ -147,8 +160,10 @@ setup_ubpf_engine(char *program_path, struct ubpf_vm **_vm)
 	 */
 	bool elf = code_len >= SELFMAG && !memcmp(code, ELFMAG, SELFMAG);
 	if (elf) {
+		INFO("Loading an ELF File ...\n");
 		ret = ubpf_load_elf(vm, code, code_len, &errmsg);
 	} else {
+		DEBUG("It is not an ELF file, maybe check it ...\n");
 		ret = ubpf_load(vm, code, code_len, &errmsg);
 	}
 	// We do not need the code data any more
@@ -159,6 +174,7 @@ setup_ubpf_engine(char *program_path, struct ubpf_vm **_vm)
 		ubpf_destroy(vm);
 		return 1;
 	}
+	INFO("--- ELF loaded\n");
 	*_vm = vm;
 
 	/**
