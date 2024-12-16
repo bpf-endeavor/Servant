@@ -430,6 +430,17 @@ pump_packets(struct xsk_socket_info *xsk, struct ubpf_vm *vm)
 	uint8_t fn_counter = 0; /* Indicates the progress we made in the chain */
 	uint8_t has_yield = 0;
 
+	void *meta[cnt];
+	for (int i = 0; i < cnt; i++) {
+		meta[i] = malloc(METADATA_SIZE);
+		if (meta[i] == NULL) {
+			ERROR("Out of memory while allocating metadata region\n");
+			for (int j = 0; j < i; j++)
+				free(meta[j]);
+			return;
+		}
+	}
+
 	for(;;) {
 		if (config.terminate)
 			break;
@@ -509,10 +520,12 @@ pump_packets(struct xsk_socket_info *xsk, struct ubpf_vm *vm)
 				void *ctx = xsk_umem__get_data(xsk->umem->buffer, addr);
 				pktctx.data = ctx;
 				pktctx.data_end = ctx + ctx_len;
+				pktctx.meta = meta[i];
 				pktctx.pkt_len = ctx_len;
 				pktctx.trim_head = 0;
 				/* uint64_t start_ts = readTSC(); */
 
+				/* __builtin_prefetch(ctx, 0, 3); */
 				ubpf_set_batch_offset(i);
 				ret = fn[fn_counter](&pktctx, sizeof(pktctx));
 

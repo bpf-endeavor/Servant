@@ -31,11 +31,11 @@ _memmove(void *d, void *s, uint32_t n)
 	memmove(d, s, n);
 }
 
-static inline void * __attribute__((always_inline))
-_ubpf_lookup_map(struct ubpf_map *m, void *k)
-{
-	return ubpf_lookup_map(m, k);
-}
+/* static inline void * __attribute__((always_inline)) */
+/* _ubpf_lookup_map(struct ubpf_map *m, void *k) */
+/* { */
+/* 	return ubpf_lookup_map(m, k); */
+/* } */
 
 /* int _ubpf_lookup_map_p1(const void *m, const void *k) */
 /* { */
@@ -85,7 +85,7 @@ register_engine_functions(struct ubpf_vm *vm)
 		/* memmove */
 		{"ubpf_memmove", _memmove},
 		/* Userspace maps (From uBPF library) */
-		{"_userspace_lookup", _ubpf_lookup_map},
+		{"_userspace_lookup", ubpf_lookup_map},
 		{"_userspace_update", _ubpf_update_map},
 		/* get time in ns */
 		{"ubpf_time_get_ns", ubpf_time_get_ns},

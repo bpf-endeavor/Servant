@@ -87,3 +87,6 @@ loader
 
 _deps/
 tags
+
+perf.data
+perf.data.old
