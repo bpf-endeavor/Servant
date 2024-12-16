@@ -18,21 +18,25 @@
 /* #define USE_POLL */
 #define SHOW_THROUGHPUT
 /* #define VM_CALL_BATCHING */
+/* #define REPORT_UBPF_OVERHEAD */
+
 
 #ifdef USE_POLL
 #include <poll.h>
 #endif
 
-/* #include "duration_hist.h" */
 
-/* # include <x86intrin.h> */
-/* static inline */
-/* uint64_t readTSC(void) { */
-/*     // _mm_lfence();  // optionally wait for earlier insns to retire before reading the clock */
-/*     uint64_t tsc = __rdtsc(); */
-/*     // _mm_lfence();  // optionally block later instructions until rdtsc retires */
-/*     return tsc; */
-/* } */
+#ifdef REPORT_UBPF_OVERHEAD
+#include "duration_hist.h"
+#include <x86intrin.h>
+static inline
+uint64_t readTSC(void) {
+    // _mm_lfence();  // optionally wait for earlier insns to retire before reading the clock
+    uint64_t tsc = __rdtsc();
+    // _mm_lfence();  // optionally block later instructions until rdtsc retires
+    return tsc;
+}
+#endif
 
 
 static inline void kick_tx(struct xsk_socket_info *xsk)
@@ -229,6 +233,11 @@ uint32_t tx(struct xsk_socket_info *xsk, struct xdp_desc **batch, uint32_t cnt)
 	return cnt;
 }
 
+
+static uint8_t has_yield = 0;
+static uint8_t yield_state[64];
+static uint8_t fn_counter = 0;
+
 static inline void
 apply_action(struct xsk_socket_info *xsk, struct xdp_desc *desc, int action)
 {
@@ -294,11 +303,11 @@ apply_mix_action(struct xsk_socket_info *xsk, struct xdp_desc **batch,
 {
 	/* DEBUG("apply_mix_action\n"); */
 	int ret;
-	// 0 drop, 1 tx, 2 pass
-	int action_count[3] = {};
-	uint32_t index_target[3] = {};
-	int reserved[3] = {};
-	struct xsk_ring_prod *rings[3] = {};
+	// 0 drop, 1 tx, 2 pass 3 yield
+	int action_count[2] = {};
+	uint32_t index_target[2] = {};
+	int reserved[2] = {};
+	struct xsk_ring_prod *rings[2] = {};
 	rings[0] = &xsk->umem->fq;
 	rings[1] = &xsk->tx;
 
@@ -310,6 +319,9 @@ apply_mix_action(struct xsk_socket_info *xsk, struct xdp_desc **batch,
 			action_count[0]++;
 		} else if (ctx_batch->rets[i] == SEND) {
 			action_count[1]++;
+		} else if (ctx_batch->rets[i] == YIELD) {
+			yield_state[i] = fn_counter + 1;
+			has_yield = 1;
 		} else {
 			// not implemented yet
 			ERROR("action not found\n");
@@ -349,7 +361,7 @@ apply_mix_action(struct xsk_socket_info *xsk, struct xdp_desc **batch,
 			index_target[1]++;
 		} else {
 			// Not implemented
-			ERROR("placing descriptor action not found\n");
+			/* ERROR("placing descriptor action not found\n"); */
 			continue;
 		}
 	}
@@ -380,7 +392,7 @@ pump_packets(struct xsk_socket_info *xsk, struct ubpf_vm *vm)
 	static uint64_t pkt_count = 0;
 	static uint64_t sent_count = 0;
 	struct timespec spec = {};
-	clock_gettime(CLOCK_REALTIME, &spec);
+	clock_gettime(CLOCK_MONOTONIC_COARSE, &spec);
 	uint64_t rprt_ts = spec.tv_sec * 1000000 + spec.tv_nsec / 1000;
 #endif
 
@@ -388,15 +400,11 @@ pump_packets(struct xsk_socket_info *xsk, struct ubpf_vm *vm)
 	uint32_t rx;
 	const uint32_t cnt = config.batch_size;
 	struct xdp_desc *batch[cnt];
-#ifdef VM_CALL_BATCHING
 	struct pktctx _pkt_ctx_arr[cnt];
 	int _ret_arr[cnt];
 	struct pktctxbatch pkt_batch = {};
 	pkt_batch.pkts = _pkt_ctx_arr;
 	pkt_batch.rets = _ret_arr;
-#else
-	struct pktctx pktctx;
-#endif
 
 #ifdef USE_POLL
 	struct pollfd fds[1] = {};
@@ -407,28 +415,15 @@ pump_packets(struct xsk_socket_info *xsk, struct ubpf_vm *vm)
 		ERROR("Configureation disabled JIT.\nIntentionally use JITted mode (ignore the flag)\n");
 	}
 	char *errmsg;
-	ubpf_jit_fn fn[MAX_NUM_PROGS];
+	ubpf_jit_fn bpf_progs[MAX_NUM_PROGS];
 	for (int i = 0; i < config.yield_sz; i++) {
-		fn[i] = ubpf_compile(vm, i, &errmsg);
-		if (fn[i] == NULL) {
+		bpf_progs[i] = ubpf_compile(vm, i, &errmsg);
+		if (bpf_progs[i] == NULL) {
 			ERROR("Failed to compile: %s\n", errmsg);
 			free(errmsg);
 			return;
 		}
-		/* printf("fn[%d]: @%p\n", i, fn[i]); */
 	}
-
-	/* for (int i = 0; i< config.yield_sz; i++) { */
-	/* 	int ret = fn[i](NULL, 0); */
-	/* 	printf("ret: %d\n", ret); */
-	/* } */
-
-	/* -1: not yielding.
-	 * i >= 0: received yield at the i-th position of chain
-	 * */
-	uint8_t yield_state[cnt];
-	uint8_t fn_counter = 0; /* Indicates the progress we made in the chain */
-	uint8_t has_yield = 0;
 
 	void *meta[cnt];
 	for (int i = 0; i < cnt; i++) {
@@ -475,11 +470,12 @@ pump_packets(struct xsk_socket_info *xsk, struct ubpf_vm *vm)
 		/* 		rx += tmp; */
 		/* 	} */
 		/* } */
+		__builtin_prefetch(batch);
 
 		/* Received a new batch of packets. reset the state */
 		memset(yield_state, 0, rx);
 		fn_counter = 0;
-#ifdef VM_CALL_BATCHING
+
 		/* Perpare batch */
 		pkt_batch.cnt = rx;
 		for (int i = 0; i < rx; i++) {
@@ -490,49 +486,56 @@ pump_packets(struct xsk_socket_info *xsk, struct ubpf_vm *vm)
 			pkt_batch.pkts[i].data = ctx;
 			pkt_batch.pkts[i].data_end = ctx + ctx_len;
 			pkt_batch.pkts[i].pkt_len = ctx_len;
+			pkt_batch.pkts[i].meta = meta[i];
 			pkt_batch.pkts[i].trim_head = 0;
 			pkt_batch.rets[i] = 0;
 		}
-		/* Pass batch to the vm */
-		/* uint64_t start_ts = readTSC(); */
-		fn[fn_counter](&pkt_batch, sizeof(pkt_batch));
-		/* uint64_t end_ts = readTSC(); */
-		/* calc_latency_from_ts(start_ts, end_ts); */
-		apply_mix_action(xsk, batch, &pkt_batch, rx);
-#ifdef SHOW_THROUGHPUT
-		for (int i = 0; i < rx; i++)
-			if (pkt_batch.rets[i] == SEND)
-				sent_count++;
-#endif
-#else
+
+		/* Start of the yield-chain */
 		do {
 			has_yield = 0;
+
+#ifdef VM_CALL_BATCHING
+			// TODO: what to do if some packets do not require the next stage?
+			// TODO: how to set the ubpf batch offset in the program ?
+			/* Pass batch to the vm */
+			/* uint64_t start_ts = readTSC(); */
+			bpf_progs[fn_counter](&pkt_batch, sizeof(pkt_batch));
+			/* uint64_t end_ts = readTSC(); */
+			/* calc_latency_from_ts(start_ts, end_ts); */
+			apply_mix_action(xsk, batch, &pkt_batch, rx);
+#ifdef SHOW_THROUGHPUT
+			for (int i = 0; i < rx; i++)
+				if (pkt_batch.rets[i] == SEND)
+					sent_count++;
+#endif
+#else
+			ubpf_jit_fn fn = bpf_progs[fn_counter];
 			for (int i = 0; i < rx; i++) {
 				if (fn_counter != yield_state[i]) {
 					/* this packet has not yielded */
 					DEBUG("Skipping... %d!=%d\n", fn_counter, yield_state[i]);
 					continue;
 				}
+				struct pktctx *pktctx = &pkt_batch.pkts[i];
 
-				uint64_t addr = batch[i]->addr;
-				addr = xsk_umem__add_offset_to_addr(addr);
-				size_t ctx_len = batch[i]->len;
-				void *ctx = xsk_umem__get_data(xsk->umem->buffer, addr);
-				pktctx.data = ctx;
-				pktctx.data_end = ctx + ctx_len;
-				pktctx.meta = meta[i];
-				pktctx.pkt_len = ctx_len;
-				pktctx.trim_head = 0;
-				/* uint64_t start_ts = readTSC(); */
+#ifdef REPORT_UBPF_OVERHEAD
+				uint64_t start_ts = readTSC();
+#endif
 
-				/* __builtin_prefetch(ctx, 0, 3); */
 				ubpf_set_batch_offset(i);
-				ret = fn[fn_counter](&pktctx, sizeof(pktctx));
+				pkt_batch.rets[i] = fn(pktctx, sizeof(*pktctx));
 
-				/* uint64_t end_ts = readTSC(); */
-				/* calc_latency_from_ts(start_ts, end_ts); */
-				batch[i]->len = pktctx.pkt_len;
-				batch[i]->addr += pktctx.trim_head;
+#ifdef REPORT_UBPF_OVERHEAD
+				uint64_t end_ts = readTSC();
+				calc_latency_from_ts(start_ts, end_ts);
+#endif
+				batch[i]->len = pktctx->pkt_len;
+				batch[i]->addr += pktctx->trim_head;
+			}
+			/* apply_mix_action(xsk, batch, &pkt_batch, rx); */
+			for (int i = 0; i < rx; i++) {
+				ret = pkt_batch.rets[i];
 				if (ret == YIELD) {
 					yield_state[i] = fn_counter + 1;
 					has_yield = 1;
@@ -548,6 +551,15 @@ pump_packets(struct xsk_socket_info *xsk, struct ubpf_vm *vm)
 			fn_counter++;
 		} while(has_yield && fn_counter < config.yield_sz);
 #endif
+		if (has_yield) {
+			ERROR("Found yield in the last stage!\n");
+			for (int i = 0; i < rx; i++) {
+				if (pkt_batch.rets[i] == YIELD) {
+					/* Drop the packet */
+					apply_action(xsk, batch[i], DROP);
+				}
+			}
+		}
 
 #ifdef SHOW_THROUGHPUT
 		pkt_count += rx;
@@ -566,5 +578,7 @@ pump_packets(struct xsk_socket_info *xsk, struct ubpf_vm *vm)
 		}
 #endif
 	}
-	/* print_latency_result(); */
+#ifdef REPORT_UBPF_OVERHEAD
+	print_latency_result();
+#endif
 }

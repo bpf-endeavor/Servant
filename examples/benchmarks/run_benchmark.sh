@@ -11,7 +11,7 @@ curdir=`realpath $curdir`
 loader="$curdir/bin/loader"
 servant="$curdir/../../src/servant"
 servant=`realpath $servant`
-queue=0
+queue=2
 ring_size=512
 
 usage() {
@@ -54,6 +54,23 @@ run_ubpf() {
 		--map xsks_map --rx-size $ring_size --tx-size $ring_size \
 		--batch-size 64 \
 		--core $queue \
+		--num-prog 1 \
+		$device $queue $1
+}
+
+run_ubpf_no_bzpoll() {
+	turn_off_busypolling
+	rm $curdir/bin/xdp.o
+	if [ -f $1 ]; then
+		rm $1
+	fi
+	make UBPF=1
+	sudo $servant $copy_flag \
+		--xdp-prog "$curdir/bin/xdp.o" \
+		--map xsks_map --rx-size $ring_size --tx-size $ring_size \
+		--batch-size 64 \
+		--core 0 \
+		--num-prog 1 \
 		$device $queue $1
 }
 
@@ -93,6 +110,8 @@ if [ $mode = xdp ]; then
 	run_xdp $binobj
 elif [ $mode = ubpf ]; then
 	run_ubpf $binobj
+elif [ $mode = "nobz-ubpf" ]; then
+	run_ubpf_no_bzpoll $binobj
 elif [ $mode = state_overhead ]; then
 	if [ $# -lt 3 ]; then
 		usage
