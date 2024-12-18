@@ -6,7 +6,7 @@
 
 #include "labels.h"
 
-#define MAX_NUM_PROGS 2
+#define MAX_NUM_PROGS 4
 struct config {
     int terminate;
     // Ring Configuration

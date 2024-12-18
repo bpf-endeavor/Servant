@@ -14,7 +14,7 @@ typedef struct {
 	uint16_t src_port;
 	uint16_t dst_port;
 	uint8_t  protocol;
-} flow_t;
+} __attribute__((packed)) flow_t;
 
 typedef struct {
 	uint32_t index;

@@ -22,6 +22,7 @@
 
 
 #ifdef USE_POLL
+#pragma message "POLL is enabled"
 #include <poll.h>
 #endif
 
@@ -235,11 +236,11 @@ uint32_t tx(struct xsk_socket_info *xsk, struct xdp_desc **batch, uint32_t cnt)
 
 
 static uint8_t has_yield = 0;
-static uint8_t yield_state[64];
+static uint8_t yield_state[128];
 static uint8_t fn_counter = 0;
 
-static inline void
-apply_action(struct xsk_socket_info *xsk, struct xdp_desc *desc, int action)
+static inline __attribute__((always_inline)) void
+apply_action(struct xsk_socket_info *xsk, struct xdp_desc *desc, int action, int i)
 {
 	/* DEBUG("action: %d\n", action); */
 	int ret;
@@ -291,7 +292,8 @@ apply_action(struct xsk_socket_info *xsk, struct xdp_desc *desc, int action)
 			DEBUG("Failed to drop packet\n");
 		}
 	} else if (action == YIELD) {
-
+		yield_state[i] = fn_counter + 1;
+		has_yield = 1;
 	} else {
 		DEBUG("Unknown Action (%d)\n", action);
 	}
@@ -399,10 +401,15 @@ pump_packets(struct xsk_socket_info *xsk, struct ubpf_vm *vm)
 	int ret;
 	uint32_t rx;
 	const uint32_t cnt = config.batch_size;
+	if (cnt > 128 ) {
+		ERROR("in uBPF the MAX_BATCH_SZ is set to 128 (for holding the state when yielding)\n");
+		return;
+	}
 	struct xdp_desc *batch[cnt];
 	struct pktctx _pkt_ctx_arr[cnt];
 	int _ret_arr[cnt];
-	struct pktctxbatch pkt_batch = {};
+	struct pktctxbatch pkt_batch;
+	pkt_batch.cnt  = 0;
 	pkt_batch.pkts = _pkt_ctx_arr;
 	pkt_batch.rets = _ret_arr;
 
@@ -470,7 +477,6 @@ pump_packets(struct xsk_socket_info *xsk, struct ubpf_vm *vm)
 		/* 		rx += tmp; */
 		/* 	} */
 		/* } */
-		__builtin_prefetch(batch);
 
 		/* Received a new batch of packets. reset the state */
 		memset(yield_state, 0, rx);
@@ -478,17 +484,19 @@ pump_packets(struct xsk_socket_info *xsk, struct ubpf_vm *vm)
 
 		/* Perpare batch */
 		pkt_batch.cnt = rx;
+
+		// Initialize a batch of structures that we pass to eBPF env
 		for (int i = 0; i < rx; i++) {
 			uint64_t addr = batch[i]->addr;
-			addr = xsk_umem__add_offset_to_addr(addr);
 			size_t ctx_len = batch[i]->len;
+			addr = xsk_umem__add_offset_to_addr(addr);
 			void *ctx = xsk_umem__get_data(xsk->umem->buffer, addr);
 			pkt_batch.pkts[i].data = ctx;
-			pkt_batch.pkts[i].data_end = ctx + ctx_len;
 			pkt_batch.pkts[i].pkt_len = ctx_len;
+			pkt_batch.pkts[i].data_end = ctx + ctx_len;
 			pkt_batch.pkts[i].meta = meta[i];
 			pkt_batch.pkts[i].trim_head = 0;
-			pkt_batch.rets[i] = 0;
+			/* pkt_batch.rets[i] = 0; */
 		}
 
 		/* Start of the yield-chain */
@@ -536,12 +544,7 @@ pump_packets(struct xsk_socket_info *xsk, struct ubpf_vm *vm)
 			/* apply_mix_action(xsk, batch, &pkt_batch, rx); */
 			for (int i = 0; i < rx; i++) {
 				ret = pkt_batch.rets[i];
-				if (ret == YIELD) {
-					yield_state[i] = fn_counter + 1;
-					has_yield = 1;
-				} else {
-					apply_action(xsk, batch[i], ret);
-				}
+				apply_action(xsk, batch[i], ret, i);
 #ifdef SHOW_THROUGHPUT
 				/* DEBUG("action: %d\n", ret); */
 				if (ret == SEND)
@@ -556,7 +559,7 @@ pump_packets(struct xsk_socket_info *xsk, struct ubpf_vm *vm)
 			for (int i = 0; i < rx; i++) {
 				if (pkt_batch.rets[i] == YIELD) {
 					/* Drop the packet */
-					apply_action(xsk, batch[i], DROP);
+					apply_action(xsk, batch[i], DROP, i);
 				}
 			}
 		}

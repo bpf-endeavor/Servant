@@ -161,8 +161,10 @@ void parse_args(int argc, char *argv[])
                 tmp = atoi(optarg);
                 if (tmp < 1) {
                     ERROR("Number of programs (--num-prog) can not be less than one\n");
+                    exit(EXIT_FAILURE);
                 } else if (tmp > MAX_NUM_PROGS) {
                     ERROR("Number of programs (--num-prog) can not be more than %d\n", MAX_NUM_PROGS);
+                    exit(EXIT_FAILURE);
                 } else {
                     config.yield_sz = tmp;
                 }
