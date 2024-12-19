@@ -401,7 +401,8 @@ pump_packets(struct xsk_socket_info *xsk, struct ubpf_vm *vm)
 	int ret;
 	uint32_t rx;
 	const uint32_t cnt = config.batch_size;
-	if (cnt > 128 ) {
+	ret = ubpf_set_batch_size(cnt);
+	if (ret != 0) {
 		ERROR("in uBPF the MAX_BATCH_SZ is set to 128 (for holding the state when yielding)\n");
 		return;
 	}
@@ -519,10 +520,11 @@ pump_packets(struct xsk_socket_info *xsk, struct ubpf_vm *vm)
 #endif
 #else
 			ubpf_jit_fn fn = bpf_progs[fn_counter];
+			__builtin_prefetch(&ubpf_set_batch_offset, 0, 3);
 			for (int i = 0; i < rx; i++) {
 				if (fn_counter != yield_state[i]) {
 					/* this packet has not yielded */
-					DEBUG("Skipping... %d!=%d\n", fn_counter, yield_state[i]);
+					/* DEBUG("Skipping... %d!=%d\n", fn_counter, yield_state[i]); */
 					continue;
 				}
 				struct pktctx *pktctx = &pkt_batch.pkts[i];
@@ -543,6 +545,9 @@ pump_packets(struct xsk_socket_info *xsk, struct ubpf_vm *vm)
 			}
 			/* apply_mix_action(xsk, batch, &pkt_batch, rx); */
 			for (int i = 0; i < rx; i++) {
+				if (fn_counter != yield_state[i]) {
+					continue;
+				}
 				ret = pkt_batch.rets[i];
 				apply_action(xsk, batch[i], ret, i);
 #ifdef SHOW_THROUGHPUT
