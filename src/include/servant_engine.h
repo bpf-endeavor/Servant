@@ -60,6 +60,9 @@ static uint64_t (*ubpf_time_get_ns)(void) = (void *)8;
 static int (*userspace_lookup_p1)(const void *, const void *) = (void *)9;
 static void *(*userspace_lookup_p2)(const void *, const void *) = (void *)10;
 
+/* Should match the numbers in uBPF VM */
+static void (*ubpf_prefetch)(void *) = (void *)128;
+
 // This macro helps with printing things from uBPF
 #define DUMP(x, args...) { char fmt[] = x; ubpf_print((char *)fmt, ##args); } 
 
