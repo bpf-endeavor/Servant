@@ -43,7 +43,8 @@ fi
 
 # ubpf
 cd $DDIR
-git clone https://github.com/fshahinfar1/uBPF.git
+# git clone https://github.com/fshahinfar1/uBPF.git
+git clone git@github.com:fshahinfar1/uBPF.git
 cd uBPF/vm
 make
 if [ $? -ne 0 ]; then
