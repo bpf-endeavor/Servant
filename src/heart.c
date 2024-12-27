@@ -403,7 +403,7 @@ pump_packets(struct xsk_socket_info *xsk, struct ubpf_vm *vm)
 		INFO("Intentionally use jitted mode (ignore the flag)\n");
 	}
 	char *errmsg;
-	ubpf_jit_fn fn = ubpf_compile(vm, &errmsg);
+	ubpf_jit_fn fn = ubpf_compile(vm, 0, &errmsg);
 	if (fn == NULL) {
 		ERROR("Failed to compile: %s\n", errmsg);
 		free(errmsg);
