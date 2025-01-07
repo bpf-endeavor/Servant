@@ -52,16 +52,20 @@ static inline void kick_tx(struct xsk_socket_info *xsk)
 	exit(EXIT_FAILURE);
 }
 
+static inline void kick_fq(struct xsk_socket_info *xsk)
+{
+	if (config.busy_poll || xsk_ring_prod__needs_wakeup(&xsk->umem->fq)) {
+		xsk->app_stats.fill_fail_polls++;
+		recvfrom(xsk_socket__fd(xsk->xsk), NULL, 0, MSG_DONTWAIT, NULL,
+				NULL);
+	}
+}
+
 static inline
 int complete_tx(struct xsk_socket_info *xsk) {
 	if (!xsk->outstanding_tx)
 		return 0;
 
-	if (config.copy_mode == XDP_COPY ||
-			xsk_ring_prod__needs_wakeup(&xsk->tx)) {
-		xsk->app_stats.copy_tx_sendtos++;
-		kick_tx(xsk);
-	}
 	size_t ndescs = (xsk->outstanding_tx > config.batch_size) ?
 		config.batch_size : xsk->outstanding_tx;
 
@@ -74,23 +78,22 @@ int complete_tx(struct xsk_socket_info *xsk) {
 		unsigned int i;
 		int ret;
 
-		ret = xsk_ring_prod__reserve(&xsk->umem->fq, rcvd, &idx_fq);
-		if (ret == 0)
-			return 0;
-		if (ret != rcvd) {
-			DEBUG("failed to get space on fill queue\n");
-			if (ret < 0) {
-				ERROR("Error: [complete_tx: parse.c] reserving fill ring failed\n");
-				exit(EXIT_FAILURE);
-			}
-
-			if (config.busy_poll || xsk_ring_prod__needs_wakeup(&xsk->umem->fq)) {
-				xsk->app_stats.fill_fail_polls++;
-				recvfrom(xsk_socket__fd(xsk->xsk), NULL, 0, MSG_DONTWAIT, NULL,
-						NULL);
-			}
+		do {
 			ret = xsk_ring_prod__reserve(&xsk->umem->fq, rcvd, &idx_fq);
-		}
+			if (ret != rcvd) {
+				kick_fq(xsk);
+			}
+		} while (ret != rcvd);
+		/* if (ret != rcvd) { */
+		/* 	DEBUG("failed to get space on fill queue\n"); */
+		/* 	if (ret < 0) { */
+		/* 		ERROR("Error: [complete_tx: parse.c] reserving fill ring failed\n"); */
+		/* 		exit(EXIT_FAILURE); */
+		/* 	} */
+
+		/* 	kick_fq(xsk); */
+		/* 	ret = xsk_ring_prod__reserve(&xsk->umem->fq, rcvd, &idx_fq); */
+		/* } */
 
 		for (i = 0; i < ret; i++)
 			*xsk_ring_prod__fill_addr(&xsk->umem->fq, idx_fq++) =
@@ -101,6 +104,13 @@ int complete_tx(struct xsk_socket_info *xsk) {
 		xsk->outstanding_tx -= ret;
 		/* xsk->ring_stats.tx_npkts += rcvd; */
 		return ret;
+	} else {
+		// Okay, we have some outstanding, but it is fine. we wait
+		if (config.copy_mode == XDP_COPY ||
+				xsk_ring_prod__needs_wakeup(&xsk->tx)) {
+			xsk->app_stats.copy_tx_sendtos++;
+			kick_tx(xsk);
+		}
 	}
 	return 0;
 }
@@ -174,15 +184,21 @@ uint32_t drop(struct xsk_socket_info *xsk, struct xdp_desc **batch, const uint32
 	uint32_t idx_target = 0;
 	uint32_t i;
 	int ret;
-	ret = xsk_ring_prod__reserve(&xsk->umem->fq, cnt, &idx_target);
-	if (ret != cnt) {
-		if (ret < 0) {
-			ERROR("Failed to reserve packets on fill queue!\n");
-			exit(EXIT_FAILURE);
+
+	do {
+		ret = xsk_ring_prod__reserve(&xsk->umem->fq, cnt, &idx_target);
+		if (ret != cnt) {
+			kick_fq(xsk);
 		}
-		DEBUG("Failed to reserve packets on fill queue\n");
-		return 0;
-	}
+	} while(ret != cnt);
+	/* if (ret != cnt) { */
+	/* 	if (ret < 0) { */
+	/* 		ERROR("Failed to reserve packets on fill queue!\n"); */
+	/* 		exit(EXIT_FAILURE); */
+	/* 	} */
+	/* 	DEBUG("Failed to reserve packets on fill queue\n"); */
+	/* 	return 0; */
+	/* } */
 
 	for (i = 0; i < cnt; i++) {
 		// Index of descriptors in the umem
@@ -210,20 +226,22 @@ uint32_t tx(struct xsk_socket_info *xsk, struct xdp_desc **batch, uint32_t cnt)
 	uint32_t idx_target;
 	uint32_t i;
 	int ret;
-	ret = xsk_ring_prod__reserve(&xsk->tx, cnt, &idx_target);
-	if (ret != cnt) {
-		if (ret < 0) {
-			ERROR("Failed to reserve packets on tx queue!\n");
-			exit(EXIT_FAILURE);
-		}
-		DEBUG("FAILED to reserve packets on tx queue\n");
-		complete_tx(xsk);
+	do {
 		ret = xsk_ring_prod__reserve(&xsk->tx, cnt, &idx_target);
-		if (ret != cnt) {
-			DEBUG("hey, why we can not send packets?? %d != %d\n", ret, cnt);
-			return 0;
-		}
-	}
+	} while(ret != cnt);
+	/* if (ret != cnt) { */
+	/* 	if (ret < 0) { */
+	/* 		ERROR("Failed to reserve packets on tx queue!\n"); */
+	/* 		exit(EXIT_FAILURE); */
+	/* 	} */
+	/* 	DEBUG("FAILED to reserve packets on tx queue\n"); */
+	/* 	complete_tx(xsk); */
+	/* 	ret = xsk_ring_prod__reserve(&xsk->tx, cnt, &idx_target); */
+	/* 	if (ret != cnt) { */
+	/* 		DEBUG("hey, why we can not send packets?? %d != %d\n", ret, cnt); */
+	/* 		return 0; */
+	/* 	} */
+	/* } */
 
 	for (i = 0; i < cnt; i++) {
 		// Index of descriptors in the umem
@@ -250,12 +268,12 @@ apply_action(struct xsk_socket_info *xsk, struct xdp_desc *desc, int action, int
 	int ret;
 	// TODO: Implement the list of actions (DROP, TX, ...)
 	if (action == SEND) {
+		tx(xsk, &desc, 1);
 		/* ret = tx(xsk, &desc, 1); */
-		ret = tx(xsk, &desc, 1);
-		if (ret != 1) {
-			DEBUG("Failed to send packet\n");
-			drop(xsk, &desc, 1);
-		}
+		/* if (ret != 1) { */
+		/* 	DEBUG("Failed to send packet\n"); */
+		/* 	drop(xsk, &desc, 1); */
+		/* } */
 	} else if (action == PASS) {
 		uint64_t addr = desc->addr;
 		addr = xsk_umem__add_offset_to_addr(addr);
@@ -291,10 +309,11 @@ apply_action(struct xsk_socket_info *xsk, struct xdp_desc *desc, int action, int
 			drop(xsk, &desc, 1);
 		}
 	} else if (action == DROP) {
-		ret = drop(xsk, &desc, 1);
-		if (ret != 1) {
-			DEBUG("Failed to drop packet\n");
-		}
+		drop(xsk, &desc, 1);
+		/* ret = drop(xsk, &desc, 1); */
+		/* if (ret != 1) { */
+		/* 	DEBUG("Failed to drop packet\n"); */
+		/* } */
 	} else if (action == YIELD) {
 		yield_state[i] = fn_counter + 1;
 		has_yield = 1;
@@ -384,6 +403,25 @@ apply_mix_action(struct xsk_socket_info *xsk, struct xdp_desc **batch,
 	}
 }
 
+#include <linux/if_ether.h>
+#include <linux/ip.h>
+static int check_is_for_this_server(void *ctx)
+{
+	static const uint8_t mac[6] = {0x9c,0xdc,0x71,0x5b,0x42,0x81};
+	static const uint32_t server_ip = 0x0101a8c0; // 0xC0A80101
+	struct ethhdr *eth = ctx;
+	if (memcmp(eth->h_dest, mac, 6) != 0) {
+		DEBUG("wrong mac address\n");
+		return -1;
+	}
+	struct iphdr *ip = (struct iphdr *)(eth + 1);
+	if (ip->daddr != server_ip) {
+		DEBUG("wrong ip %x != %x\n", ip->daddr, server_ip);
+		return -1;
+	}
+	return 0;
+}
+
 /**
  * Poll rx queue of the socket and send received packets to eBPF engine
  *
@@ -446,6 +484,7 @@ pump_packets(struct xsk_socket_info *xsk, struct ubpf_vm *vm)
 				free(meta[j]);
 			return;
 		}
+		pkt_batch.pkts[i].meta = meta[i];
 	}
 
 	for(;;) {
@@ -491,18 +530,21 @@ pump_packets(struct xsk_socket_info *xsk, struct ubpf_vm *vm)
 		pkt_batch.cnt = rx;
 
 		// Initialize a batch of structures that we pass to eBPF env
-		for (int i = 0; i < rx; i++) {
+		for (int i = 0, j = 0; i < rx; i++, j++) {
 			uint64_t addr = batch[i]->addr;
 			size_t ctx_len = batch[i]->len;
 			addr = xsk_umem__add_offset_to_addr(addr);
 			void *ctx = xsk_umem__get_data(xsk->umem->buffer, addr);
-			pkt_batch.pkts[i].data = ctx;
-			pkt_batch.pkts[i].pkt_len = ctx_len;
-			pkt_batch.pkts[i].data_end = ctx + ctx_len;
-			pkt_batch.pkts[i].meta = meta[i];
-			pkt_batch.pkts[i].trim_head = 0;
-			/* pkt_batch.rets[i] = 0; */
+			pkt_batch.pkts[j].data = ctx;
+			pkt_batch.pkts[j].pkt_len = ctx_len;
+			pkt_batch.pkts[j].data_end = ctx + ctx_len;
+			pkt_batch.pkts[j].trim_head = 0;
+			/* pkt_batch.rets[j] = 0; */
 			__builtin_prefetch(ctx);
+			if (check_is_for_this_server(ctx) != 0) {
+				drop(xsk, &batch[i], 1);
+				j--;
+			}
 		}
 
 		/* Start of the yield-chain */
