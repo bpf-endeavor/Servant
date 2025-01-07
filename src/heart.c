@@ -57,10 +57,9 @@ int complete_tx(struct xsk_socket_info *xsk) {
 	if (!xsk->outstanding_tx)
 		return 0;
 
-	/* if (config.copy_mode == XDP_COPY || */
-	/* 		xsk_ring_prod__needs_wakeup(&xsk->tx)) { */
-	if (config.copy_mode == XDP_COPY) {
-		/* xsk->app_stats.copy_tx_sendtos++; */
+	if (config.copy_mode == XDP_COPY ||
+			xsk_ring_prod__needs_wakeup(&xsk->tx)) {
+		xsk->app_stats.copy_tx_sendtos++;
 		kick_tx(xsk);
 	}
 	size_t ndescs = (xsk->outstanding_tx > config.batch_size) ?
@@ -86,7 +85,7 @@ int complete_tx(struct xsk_socket_info *xsk) {
 			}
 
 			if (config.busy_poll || xsk_ring_prod__needs_wakeup(&xsk->umem->fq)) {
-				/* xsk->app_stats.fill_fail_polls++; */
+				xsk->app_stats.fill_fail_polls++;
 				recvfrom(xsk_socket__fd(xsk->xsk), NULL, 0, MSG_DONTWAIT, NULL,
 						NULL);
 			}
@@ -142,7 +141,7 @@ poll_rx_queue(struct xsk_socket_info *xsk, struct xdp_desc **batch,
 		/* // There is no packets */
 		if (config.busy_poll ||
 				xsk_ring_prod__needs_wakeup(&xsk->umem->fq)) {
-			/* xsk->app_stats.rx_empty_polls++; */
+			xsk->app_stats.rx_empty_polls++;
 			recvfrom(xsk_socket__fd(xsk->xsk), NULL, 0, MSG_DONTWAIT,
 					NULL, NULL);
 		}
@@ -218,7 +217,12 @@ uint32_t tx(struct xsk_socket_info *xsk, struct xdp_desc **batch, uint32_t cnt)
 			exit(EXIT_FAILURE);
 		}
 		DEBUG("FAILED to reserve packets on tx queue\n");
-		return 0;
+		complete_tx(xsk);
+		ret = xsk_ring_prod__reserve(&xsk->tx, cnt, &idx_target);
+		if (ret != cnt) {
+			DEBUG("hey, why we can not send packets?? %d != %d\n", ret, cnt);
+			return 0;
+		}
 	}
 
 	for (i = 0; i < cnt; i++) {
@@ -498,6 +502,7 @@ pump_packets(struct xsk_socket_info *xsk, struct ubpf_vm *vm)
 			pkt_batch.pkts[i].meta = meta[i];
 			pkt_batch.pkts[i].trim_head = 0;
 			/* pkt_batch.rets[i] = 0; */
+			__builtin_prefetch(ctx);
 		}
 
 		/* Start of the yield-chain */

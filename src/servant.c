@@ -46,6 +46,17 @@ static void setRlimit()
 	}
 }
 
+static void report_afxdp_stats(struct xsk_socket_info *xsk)
+{
+#define P(x) printf(" - %s: %lu\n", #x, xsk->app_stats.x)
+	printf("Ring stats:\n");
+	P(rx_empty_polls);
+	P(fill_fail_polls);
+	P(copy_tx_sendtos);
+	P(tx_wakeup_sendtos);
+	P(opt_polls);
+}
+
 int main(int argc, char *argv[])
 {
 	int ret;
@@ -153,6 +164,8 @@ int main(int argc, char *argv[])
 
 	// Poll the socket and send receive packets to eBPF engine
 	pump_packets(xsk, vm);
+
+	report_afxdp_stats(xsk);
 
 	// Clean up
 	/* pthread_join(report_thread, NULL); */

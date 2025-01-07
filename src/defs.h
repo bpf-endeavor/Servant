@@ -15,19 +15,10 @@ struct xsk_ring_stats {
     unsigned long rx_full_npkts;
     unsigned long rx_fill_empty_npkts;
     unsigned long tx_empty_npkts;
-    unsigned long prev_rx_npkts;
-    unsigned long prev_tx_npkts;
-    unsigned long prev_rx_dropped_npkts;
-    unsigned long prev_rx_invalid_npkts;
-    unsigned long prev_tx_invalid_npkts;
-    unsigned long prev_rx_full_npkts;
-    unsigned long prev_rx_fill_empty_npkts;
-    unsigned long prev_tx_empty_npkts;
 };
 
 struct xsk_driver_stats {
     unsigned long intrs;
-    unsigned long prev_intrs;
 };
 
 struct xsk_app_stats {
@@ -36,12 +27,6 @@ struct xsk_app_stats {
     unsigned long copy_tx_sendtos;
     unsigned long tx_wakeup_sendtos;
     unsigned long opt_polls;
-    unsigned long prev_rx_empty_polls;
-    unsigned long prev_fill_fail_polls;
-    unsigned long prev_copy_tx_sendtos;
-    unsigned long prev_tx_wakeup_sendtos;
-    unsigned long prev_opt_polls;
-    unsigned long delay_cycles;
 };
 
 struct xsk_umem_info {
