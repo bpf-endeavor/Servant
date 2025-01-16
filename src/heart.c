@@ -20,6 +20,7 @@
 #define SHOW_THROUGHPUT
 /* #define VM_CALL_BATCHING */
 /* #define REPORT_UBPF_OVERHEAD */
+#define DBG_CHECK_INCOMING_PKTS
 
 
 #ifdef USE_POLL
@@ -44,13 +45,16 @@ uint64_t readTSC(void) {
 static inline void kick_tx(struct xsk_socket_info *xsk)
 {
 	int ret;
-
-	ret = sendto(xsk_socket__fd(xsk->xsk), NULL, 0, MSG_DONTWAIT, NULL, 0);
-	if (ret >= 0 || errno == ENOBUFS || errno == EAGAIN ||
-			errno == EBUSY || errno == ENETDOWN)
-		return;
-	ERROR("in kick_tx!\n");
-	exit(EXIT_FAILURE);
+	if (config.copy_mode == XDP_COPY ||
+			xsk_ring_prod__needs_wakeup(&xsk->tx)) {
+		xsk->app_stats.copy_tx_sendtos++;
+		ret = sendto(xsk_socket__fd(xsk->xsk), NULL, 0, MSG_DONTWAIT, NULL, 0);
+		if (ret >= 0 || errno == ENOBUFS || errno == EAGAIN ||
+				errno == EBUSY || errno == ENETDOWN)
+			return;
+		ERROR("in kick_tx!\n");
+		exit(EXIT_FAILURE);
+	}
 }
 
 static inline void kick_fq(struct xsk_socket_info *xsk)
@@ -59,6 +63,15 @@ static inline void kick_fq(struct xsk_socket_info *xsk)
 		xsk->app_stats.fill_fail_polls++;
 		recvfrom(xsk_socket__fd(xsk->xsk), NULL, 0, MSG_DONTWAIT, NULL,
 				NULL);
+	}
+}
+
+static inline void kick_rx(struct xsk_socket_info *xsk)
+{
+	if (config.busy_poll || xsk_ring_prod__needs_wakeup(&xsk->umem->fq)) {
+		xsk->app_stats.rx_empty_polls++;
+		recvfrom(xsk_socket__fd(xsk->xsk), NULL, 0, MSG_DONTWAIT,
+				NULL, NULL);
 	}
 }
 
@@ -85,16 +98,6 @@ int complete_tx(struct xsk_socket_info *xsk) {
 				kick_fq(xsk);
 			}
 		} while (ret != rcvd);
-		/* if (ret != rcvd) { */
-		/* 	DEBUG("failed to get space on fill queue\n"); */
-		/* 	if (ret < 0) { */
-		/* 		ERROR("Error: [complete_tx: parse.c] reserving fill ring failed\n"); */
-		/* 		exit(EXIT_FAILURE); */
-		/* 	} */
-
-		/* 	kick_fq(xsk); */
-		/* 	ret = xsk_ring_prod__reserve(&xsk->umem->fq, rcvd, &idx_fq); */
-		/* } */
 
 		for (i = 0; i < ret; i++)
 			*xsk_ring_prod__fill_addr(&xsk->umem->fq, idx_fq++) =
@@ -106,12 +109,8 @@ int complete_tx(struct xsk_socket_info *xsk) {
 		/* xsk->ring_stats.tx_npkts += rcvd; */
 		return ret;
 	} else {
-		// Okay, we have some outstanding, but it is fine. we wait
-		if (config.copy_mode == XDP_COPY ||
-				xsk_ring_prod__needs_wakeup(&xsk->tx)) {
-			xsk->app_stats.copy_tx_sendtos++;
-			kick_tx(xsk);
-		}
+		/* Okay, we have some outstanding, but it is fine. we wait */
+		kick_tx(xsk);
 	}
 	return 0;
 }
@@ -133,38 +132,13 @@ poll_rx_queue(struct xsk_socket_info *xsk, struct xdp_desc **batch,
 	uint32_t idx_rx;
 	uint32_t rcvd;
 
-	/* const int poll_timeout = 1000; */
-	/* const int num_socks = 1; */
-	/* struct pollfd fds[1] = {}; */
-	/* int ret; */
-
-	/* for (i = 0; i < num_socks; i++) { */
-	/* 	/1* fds[i].fd = xsk_socket__fd(xsks[i]->xsk); *1/ */
-	/* 	fds[i].fd = xsk_socket__fd(xsk->xsk); */
-	/* 	fds[i].events = POLLIN; */
-	/* } */
-	/* /1* if (opt_poll) { *1/ */
-	/* 	ret = poll(fds, num_socks, poll_timeout); */
-	/* /1* } *1/ */
-
 	rcvd = xsk_ring_cons__peek(&xsk->rx, cnt, &idx_rx);
 	if (!rcvd) {
-		/* // There is no packets */
-		if (config.busy_poll ||
-				xsk_ring_prod__needs_wakeup(&xsk->umem->fq)) {
-			xsk->app_stats.rx_empty_polls++;
-			recvfrom(xsk_socket__fd(xsk->xsk), NULL, 0, MSG_DONTWAIT,
-					NULL, NULL);
-		}
+		kick_rx(xsk);
 		return 0;
 	}
-	for (i = 0; i < rcvd; i++) {
-		struct xdp_desc *desc =
-			(struct xdp_desc *)xsk_ring_cons__rx_desc(&xsk->rx, idx_rx);
-		idx_rx++;
-		batch[i] = desc;
-	}
-	/* xsk_ring_cons__release(&xsk->rx, rcvd); */
+	for (i = 0; i < rcvd; i++)
+		batch[i] = xsk_ring_cons__rx_desc(&xsk->rx, idx_rx++);
 	/* xsk->ring_stats.rx_npkts += rcvd; */
 	return rcvd;
 }
@@ -192,14 +166,6 @@ uint32_t drop(struct xsk_socket_info *xsk, struct xdp_desc **batch, const uint32
 			kick_fq(xsk);
 		}
 	} while(ret != cnt);
-	/* if (ret != cnt) { */
-	/* 	if (ret < 0) { */
-	/* 		ERROR("Failed to reserve packets on fill queue!\n"); */
-	/* 		exit(EXIT_FAILURE); */
-	/* 	} */
-	/* 	DEBUG("Failed to reserve packets on fill queue\n"); */
-	/* 	return 0; */
-	/* } */
 
 	for (i = 0; i < cnt; i++) {
 		// Index of descriptors in the umem
@@ -229,26 +195,17 @@ uint32_t tx(struct xsk_socket_info *xsk, struct xdp_desc **batch, uint32_t cnt)
 	int ret;
 	do {
 		ret = xsk_ring_prod__reserve(&xsk->tx, cnt, &idx_target);
+		if (ret != cnt) {
+			kick_tx(xsk);
+		}
 	} while(ret != cnt);
-	/* if (ret != cnt) { */
-	/* 	if (ret < 0) { */
-	/* 		ERROR("Failed to reserve packets on tx queue!\n"); */
-	/* 		exit(EXIT_FAILURE); */
-	/* 	} */
-	/* 	DEBUG("FAILED to reserve packets on tx queue\n"); */
-	/* 	complete_tx(xsk); */
-	/* 	ret = xsk_ring_prod__reserve(&xsk->tx, cnt, &idx_target); */
-	/* 	if (ret != cnt) { */
-	/* 		DEBUG("hey, why we can not send packets?? %d != %d\n", ret, cnt); */
-	/* 		return 0; */
-	/* 	} */
-	/* } */
 
 	for (i = 0; i < cnt; i++) {
 		// Index of descriptors in the umem
 		uint64_t orig = xsk_umem__extract_addr(batch[i]->addr);
-		xsk_ring_prod__tx_desc(&xsk->tx, idx_target)->addr = orig;
-		xsk_ring_prod__tx_desc(&xsk->tx, idx_target)->len = batch[i]->len;
+		struct xdp_desc *d = xsk_ring_prod__tx_desc(&xsk->tx, idx_target);
+		d->addr = orig;
+		d->len = batch[i]->len;
 		idx_target++;
 	}
 	xsk->outstanding_tx += cnt;
@@ -265,16 +222,9 @@ static uint8_t fn_counter = 0;
 static inline __attribute__((always_inline)) void
 apply_action(struct xsk_socket_info *xsk, struct xdp_desc *desc, int action, int i)
 {
-	/* DEBUG("action: %d\n", action); */
 	int ret;
-	// TODO: Implement the list of actions (DROP, TX, ...)
 	if (action == SEND) {
 		tx(xsk, &desc, 1);
-		/* ret = tx(xsk, &desc, 1); */
-		/* if (ret != 1) { */
-		/* 	DEBUG("Failed to send packet\n"); */
-		/* 	drop(xsk, &desc, 1); */
-		/* } */
 	} else if (action == PASS) {
 		uint64_t addr = desc->addr;
 		addr = xsk_umem__add_offset_to_addr(addr);
@@ -311,13 +261,6 @@ apply_action(struct xsk_socket_info *xsk, struct xdp_desc *desc, int action, int
 		}
 	} else if (action == DROP) {
 		drop(xsk, &desc, 1);
-		/* ret = drop(xsk, &desc, 1); */
-		/* if (ret != 1) { */
-		/* 	DEBUG("Failed to drop packet\n"); */
-		/* } */
-	} else if (action == YIELD) {
-		yield_state[i] = fn_counter + 1;
-		has_yield = 1;
 	} else {
 		DEBUG("Unknown Action (%d)\n", action);
 	}
@@ -408,12 +351,12 @@ apply_mix_action(struct xsk_socket_info *xsk, struct xdp_desc **batch,
 #include <linux/ip.h>
 static int check_is_for_this_server(void *ctx)
 {
-	static const uint8_t mac[6] = {0x00,0x8c,0xfa,0xf7,0x1c,0x80};
+	static const uint8_t mac[6] = {0x0c,0x42,0xa1,0xdd,0x59,0x1c};
 	static const uint32_t server_ip = 0x0101a8c0; // 0xC0A80101
 	static char tmp_mac[32];
 	struct ethhdr *eth = ctx;
 	struct iphdr *ip = (struct iphdr *)(eth + 1);
-	if (eth->h_proto != htons(ETH_P_IP) && eth->h_proto != 4) {
+	if (eth->h_proto != htons(ETH_P_IP)) {
 		DEBUG("unexpected inner protocol!\n");
 		return -1;
 	}
@@ -428,10 +371,10 @@ static int check_is_for_this_server(void *ctx)
 				);
 		DEBUG("wrong mac address: %s\n", tmp_mac);
 		DEBUG("\tip: %d.%d.%d.%d\n",
-				(ip->daddr >> 24) & 0xff,
-				(ip->daddr >> 16) & 0xff,
+				(ip->daddr) & 0xff,
 				(ip->daddr >> 8) & 0xff,
-				(ip->daddr) & 0xff
+				(ip->daddr >> 16) & 0xff,
+				(ip->daddr >> 24) & 0xff
 				);
 		return -1;
 	}
@@ -543,32 +486,32 @@ pump_packets(struct xsk_socket_info *xsk, struct ubpf_vm *vm)
 		/* } */
 
 		/* Received a new batch of packets. reset the state */
-		memset(yield_state, 0, rx);
+		memset(yield_state, 0, rx * sizeof(yield_state[0]));
 		fn_counter = 0;
 
 		/* Perpare batch */
 		pkt_batch.cnt = rx;
 
 		// Initialize a batch of structures that we pass to eBPF env
-		int _tmp_dropped = 0;
-		for (int i = 0, j = 0; i < rx; i++, j++) {
+		for (int i = 0; i < rx; i++) {
 			uint64_t addr = batch[i]->addr;
 			size_t ctx_len = batch[i]->len;
 			addr = xsk_umem__add_offset_to_addr(addr);
 			void *ctx = xsk_umem__get_data(xsk->umem->buffer, addr);
-			pkt_batch.pkts[j].data = ctx;
-			pkt_batch.pkts[j].pkt_len = ctx_len;
-			pkt_batch.pkts[j].data_end = ctx + ctx_len;
-			pkt_batch.pkts[j].trim_head = 0;
-			/* pkt_batch.rets[j] = 0; */
+			pkt_batch.pkts[i].data = ctx;
+			pkt_batch.pkts[i].pkt_len = ctx_len;
+			pkt_batch.pkts[i].data_end = ctx + ctx_len;
+			pkt_batch.pkts[i].trim_head = 0;
+			pkt_batch.rets[i] = YIELD;
 			__builtin_prefetch(ctx);
+#ifdef DBG_CHECK_INCOMING_PKTS
 			if (check_is_for_this_server(ctx) != 0) {
-				drop(xsk, &batch[i], 1);
-				j--;
-				_tmp_dropped++;
+				pkt_batch.rets[i] = DROP;
+				/* terminated before the first stage */
+				yield_state[i] = (uint8_t)-1;
 			}
+#endif
 		}
-		rx -= _tmp_dropped;
 
 		/* Start of the yield-chain */
 		do {
@@ -593,8 +536,8 @@ pump_packets(struct xsk_socket_info *xsk, struct ubpf_vm *vm)
 			__builtin_prefetch(&ubpf_set_batch_offset, 0, 3);
 			for (int i = 0; i < rx; i++) {
 				if (fn_counter != yield_state[i]) {
-					/* this packet has not yielded */
-					/* DEBUG("Skipping... %d!=%d\n", fn_counter, yield_state[i]); */
+					/* The verdict is known */
+					DEBUG("old stage\n");
 					continue;
 				}
 				struct pktctx *pktctx = &pkt_batch.pkts[i];
@@ -612,38 +555,44 @@ pump_packets(struct xsk_socket_info *xsk, struct ubpf_vm *vm)
 #endif
 				batch[i]->len = pktctx->pkt_len;
 				batch[i]->addr += pktctx->trim_head;
-			}
-			/* apply_mix_action(xsk, batch, &pkt_batch, rx); */
-			for (int i = 0; i < rx; i++) {
-				if (fn_counter != yield_state[i]) {
-					continue;
+				if (pkt_batch.rets[i] == YIELD) {
+					/* move to the new stage */
+					yield_state[i] = fn_counter + 1;
+					has_yield = 1;
 				}
-				ret = pkt_batch.rets[i];
-				apply_action(xsk, batch[i], ret, i);
-#ifdef SHOW_THROUGHPUT
-				/* DEBUG("action: %d\n", ret); */
-				if (ret == SEND)
-					sent_count++;
-#endif
+				fn_counter++;
 			}
-			fn_counter++;
 		} while(has_yield && fn_counter < config.yield_sz);
 #endif
 		if (has_yield) {
 			ERROR("Found yield in the last stage!\n");
-			for (int i = 0; i < rx; i++) {
-				if (pkt_batch.rets[i] == YIELD) {
-					/* Drop the packet */
-					apply_action(xsk, batch[i], DROP, i);
-				}
-			}
 			has_yield = 0;
+		}
+
+		/* NOTE: the actions should applied in order (we are releasing
+		 * the rx ring so order matters)
+		 * */
+		/* apply_mix_action(xsk, batch, &pkt_batch, rx); */
+		for (int i = 0; i < rx; i++) {
+			ret = pkt_batch.rets[i];
+			if (ret == YIELD) {
+				/* we should not yield in the last round */
+				ret = DROP;
+			}
+#ifdef SHOW_THROUGHPUT
+			else if (ret == SEND) {
+				sent_count++;
+			}
+#endif
+
+			if (ret == DROP) {
+				DEBUG("a drop verdict!\n");
+			}
+			apply_action(xsk, batch[i], ret, i);
 		}
 
 #ifdef SHOW_THROUGHPUT
 		pkt_count += rx;
-		/* if (ret == SEND) */
-		/* 	sent_count++; */
 		clock_gettime(CLOCK_MONOTONIC_COARSE, &spec);
 		uint64_t now = spec.tv_sec * 1000000 + spec.tv_nsec / 1000;
 		uint64_t delta = now - rprt_ts;
@@ -656,6 +605,10 @@ pump_packets(struct xsk_socket_info *xsk, struct ubpf_vm *vm)
 			rprt_ts = now;
 		}
 #endif
+	}
+
+	for (int i = 0; i < cnt; i++) {
+		free(meta[i]);
 	}
 #ifdef REPORT_UBPF_OVERHEAD
 	print_latency_result();
