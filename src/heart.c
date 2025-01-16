@@ -2,6 +2,7 @@
  * This function has the function that interface with AF_XDP. Receiving packets
  * and pumping them to the eBPF engine (Brain)
  */
+#include <arpa/inet.h>
 #include <stdlib.h> // exit
 #include <sys/socket.h> // sendto
 #include <errno.h>
@@ -285,7 +286,7 @@ apply_action(struct xsk_socket_info *xsk, struct xdp_desc *desc, int action, int
 			 * headers to answer "recvfrom" request.
 			 * uBPF program should trim ethernet header.
 			 * */
-			int ret = send_interpose_msg(ctx, desc->len);
+			ret = send_interpose_msg(ctx, desc->len);
 			if (ret < 0) {
 				// failed to pass packet
 				ERROR("Failed to pass packect\n");
@@ -301,7 +302,7 @@ apply_action(struct xsk_socket_info *xsk, struct xdp_desc *desc, int action, int
 			 * to the original sender.
 			 * */
 			// Use UDP socket to send packet to application
-			int ret = send_udp_socket_msg(ctx, desc->len);
+			ret = send_udp_socket_msg(ctx, desc->len);
 			if (ret < 0) {
 				// failed to pass packet
 				ERROR("Failed to pass packet (UDP socket)\n");
@@ -407,14 +408,33 @@ apply_mix_action(struct xsk_socket_info *xsk, struct xdp_desc **batch,
 #include <linux/ip.h>
 static int check_is_for_this_server(void *ctx)
 {
-	static const uint8_t mac[6] = {0x9c,0xdc,0x71,0x5b,0x42,0x81};
+	static const uint8_t mac[6] = {0x00,0x8c,0xfa,0xf7,0x1c,0x80};
 	static const uint32_t server_ip = 0x0101a8c0; // 0xC0A80101
+	static char tmp_mac[32];
 	struct ethhdr *eth = ctx;
-	if (memcmp(eth->h_dest, mac, 6) != 0) {
-		DEBUG("wrong mac address\n");
+	struct iphdr *ip = (struct iphdr *)(eth + 1);
+	if (eth->h_proto != htons(ETH_P_IP) && eth->h_proto != 4) {
+		DEBUG("unexpected inner protocol!\n");
 		return -1;
 	}
-	struct iphdr *ip = (struct iphdr *)(eth + 1);
+	if (memcmp(eth->h_dest, mac, 6) != 0) {
+		snprintf(tmp_mac, 31, "%x:%x:%x:%x:%x:%x",
+				eth->h_dest[0],
+				eth->h_dest[1],
+				eth->h_dest[2],
+				eth->h_dest[3],
+				eth->h_dest[4],
+				eth->h_dest[5]
+				);
+		DEBUG("wrong mac address: %s\n", tmp_mac);
+		DEBUG("\tip: %d.%d.%d.%d\n",
+				(ip->daddr >> 24) & 0xff,
+				(ip->daddr >> 16) & 0xff,
+				(ip->daddr >> 8) & 0xff,
+				(ip->daddr) & 0xff
+				);
+		return -1;
+	}
 	if (ip->daddr != server_ip) {
 		DEBUG("wrong ip %x != %x\n", ip->daddr, server_ip);
 		return -1;
@@ -530,6 +550,7 @@ pump_packets(struct xsk_socket_info *xsk, struct ubpf_vm *vm)
 		pkt_batch.cnt = rx;
 
 		// Initialize a batch of structures that we pass to eBPF env
+		int _tmp_dropped = 0;
 		for (int i = 0, j = 0; i < rx; i++, j++) {
 			uint64_t addr = batch[i]->addr;
 			size_t ctx_len = batch[i]->len;
@@ -544,8 +565,10 @@ pump_packets(struct xsk_socket_info *xsk, struct ubpf_vm *vm)
 			if (check_is_for_this_server(ctx) != 0) {
 				drop(xsk, &batch[i], 1);
 				j--;
+				_tmp_dropped++;
 			}
 		}
+		rx -= _tmp_dropped;
 
 		/* Start of the yield-chain */
 		do {
@@ -614,6 +637,7 @@ pump_packets(struct xsk_socket_info *xsk, struct ubpf_vm *vm)
 					apply_action(xsk, batch[i], DROP, i);
 				}
 			}
+			has_yield = 0;
 		}
 
 #ifdef SHOW_THROUGHPUT
