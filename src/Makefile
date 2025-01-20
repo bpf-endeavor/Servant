@@ -1,8 +1,13 @@
 CC = clang
-# CC = gcc
-# CFLAGS = -g -O0 -Wall
-CFLAGS = -O3 -g -Wall -I ../deps/
-LDFLAGS = -lbpf -lubpf -lm -lpthread -lrt -lelf
+
+LIBBPF_INSTAL_DIR=../_deps/libbpf/src/build/usr
+
+CFLAGS = -O3 -g -Wall \
+		 -I ../deps/ \
+		 -I $(LIBBPF_INSTAL_DIR)/include/
+
+LDFLAGS = -L $(LIBBPF_INSTAL_DIR)/lib64/ \
+		  -lbpf -lubpf -lm -lpthread -lrt -lelf
 
 OBJS = servant.o sockets.o heart.o brain.o config.o service_stats.o log.o \
 		map.o interpose_link.o vchannel.o userspace_maps.o \

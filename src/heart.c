@@ -34,10 +34,10 @@
 #include <x86intrin.h>
 static inline
 uint64_t readTSC(void) {
-    // _mm_lfence();  // optionally wait for earlier insns to retire before reading the clock
-    uint64_t tsc = __rdtsc();
-    // _mm_lfence();  // optionally block later instructions until rdtsc retires
-    return tsc;
+	// _mm_lfence();  // optionally wait for earlier insns to retire before reading the clock
+	uint64_t tsc = __rdtsc();
+	// _mm_lfence();  // optionally block later instructions until rdtsc retires
+	return tsc;
 }
 #endif
 
@@ -351,7 +351,7 @@ apply_mix_action(struct xsk_socket_info *xsk, struct xdp_desc **batch,
 #include <linux/ip.h>
 static int check_is_for_this_server(void *ctx)
 {
-	static const uint8_t mac[6] = {0x0c,0x42,0xa1,0xdd,0x59,0x1c};
+	static const uint8_t mac[6] = {0x0c,0x42,0xa1,0xdd,0x5f,0xdc};
 	static const uint32_t server_ip = 0x0101a8c0; // 0xC0A80101
 	static char tmp_mac[32];
 	struct ethhdr *eth = ctx;
@@ -537,7 +537,7 @@ pump_packets(struct xsk_socket_info *xsk, struct ubpf_vm *vm)
 			for (int i = 0; i < rx; i++) {
 				if (fn_counter != yield_state[i]) {
 					/* The verdict is known */
-					DEBUG("old stage\n");
+					DEBUG("old stage (%d != %d)\n", fn_counter, yield_state[i]);
 					continue;
 				}
 				struct pktctx *pktctx = &pkt_batch.pkts[i];
@@ -560,8 +560,8 @@ pump_packets(struct xsk_socket_info *xsk, struct ubpf_vm *vm)
 					yield_state[i] = fn_counter + 1;
 					has_yield = 1;
 				}
-				fn_counter++;
 			}
+			fn_counter++;
 		} while(has_yield && fn_counter < config.yield_sz);
 #endif
 		if (has_yield) {
