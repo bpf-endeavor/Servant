@@ -61,9 +61,20 @@ cd src
 mkdir build
 make all OBJDIR=.
 make install DESTDIR=build OBJDIR=.
-sudo make install
-echo `whereis libbpf` | awk '{print $2}' | xargs dirname | sudo tee /etc/ld.so.conf.d/libbpf.conf
-sudo ldconfig
+# Check if a recent libbpf is already installed on the system
+_current_libbpf_v=$(pkg-config --modversion libbpf)
+_major=0
+if [ $? -eq 0 ]; then
+	_major=$(echo $_current_libbpf_v | cut -d '.' -f 1)
+else
+	_current_libbpf_v="no libbpf found"
+fi
+if [ $_major -lt 1 ]; then
+	log "current version of libbpf is not appropriate: $_current_libbpf_v"
+	sudo make install
+	'/usr/lib64/' | sudo tee /etc/ld.so.conf.d/libbpf.conf
+	sudo ldconfig
+fi
 log "- libbpf"
 # llvm13
 # cd $CURDIR/docs/
