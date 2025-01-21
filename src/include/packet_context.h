@@ -1,11 +1,12 @@
 #ifndef PACKET_CONTEXT_H
 #define PACKET_CONTEXT_H
+typedef int64_t verdict_t;
 
 // Return values
-#define PASS 100
-#define DROP 200
-#define SEND 300
-#define YIELD 400
+#define PASS 100L
+#define DROP 200L
+#define SEND 300L
+#define YIELD 400L
 
 #define METADATA_SIZE 1024
 
@@ -21,7 +22,7 @@ struct pktctx {
 struct pktctxbatch {
 	uint32_t cnt; // number of packets in this batch
 	struct pktctx *pkts; // points to array of pktctx pointers
-	int *rets; // points to an array of integers
+	verdict_t *rets; // points to an array of integers
 }; 
 
 #endif

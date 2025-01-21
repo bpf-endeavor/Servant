@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h> // exit, atoi
+#include <string.h>
 #include <math.h>
 #include <errno.h>
 #include <getopt.h>
@@ -12,6 +13,35 @@
 #define REQUIRED_ARGUMENTS 3
 
 struct config config = {};
+
+typedef enum {
+	UNKNOWN,
+	INTEL,
+	MLX5,
+} driver_family_t;
+
+static driver_family_t get_driver_family(char *ifname) {
+	char buf[128];
+	snprintf(buf, 127, "/sys/class/net/%s/device/uevent", ifname);
+	FILE *f = fopen(buf, "r");
+	size_t ret = fread(buf, 1, 127, f);
+	if (ret < 8)
+		return UNKNOWN;
+	if (strncmp(buf, "DRIVER=", 7) != 0) {
+		return UNKNOWN;
+	}
+	int newline = 7;
+	for (;newline < ret; newline++) {
+		if (buf[newline] == '\n')
+			break;
+	}
+	char *driver_name = &buf[7];
+	size_t driver_name_len = newline - 7;
+	if (driver_name_len >= 9 && strncmp(driver_name, "mlx5_core", 9) == 0) {
+		return MLX5;
+	}
+	return UNKNOWN;
+}
 
 void usage(char *prog_name)
 {
@@ -32,15 +62,15 @@ void parse_args(int argc, char *argv[])
 {
     int tmp;
     /* Default Values */
-    config.frame_size = 2048;
-    config.frame_shift = log2(config.frame_size);
-    config.headroom = 256;
+    config.frame_size = 0;
+    config.frame_shift = 0;
+    config.headroom = DEFAULT_HEADROOM_SIZE;
     config.busy_poll = 0;
-    config.busy_poll_duration = 20;
-    config.batch_size = 64;
+    config.busy_poll_duration = DEFAULT_BUSYPOLL_DURATION;
+    config.batch_size = DEFAULT_BATCH_SIZE;
     config.terminate = 0;
-    config.rx_size = 512;
-    config.tx_size = 512;
+    config.rx_size = DEFAULT_RING_SIZE;
+    config.tx_size = DEFAULT_RING_SIZE;
     config.copy_mode = XDP_ZEROCOPY;
     config.xdp_mode = XDP_FLAGS_DRV_MODE;
     config.jitted = 1;
@@ -52,7 +82,7 @@ void parse_args(int argc, char *argv[])
     config.has_uth = 0;
     config.uth_prog_path = NULL;
     config.use_packet_injection = 0;
-    config.maps = malloc(10 * sizeof(char *));
+    config.maps = malloc(MAX_NUM_MAPS * sizeof(char *));
     config.count_maps = 0;
     /* Cores */
     config.core = -1;
@@ -193,8 +223,23 @@ void parse_args(int argc, char *argv[])
     config.ebpf_program_path = argv[optind];
     optind++;
 
+    // Set the frame size based on the driver family
+    if (config.frame_size == 0) {
+	    // User has not specified the frame size, continue with driver
+	    // specific default value
+	    switch(get_driver_family(config.ifname)) {
+		    case INTEL:
+			    config.frame_size = DEFAULT_FRAME_SIZE_INTEL;
+			    break;
+		    default:
+			    config.frame_size = DEFAULT_FRAME_SIZE_MLX5;
+			    break;
+	    }
+	    config.frame_shift = log2(config.frame_size);
+    }
+
     // How many descriptors are needed
-    config.num_frames = (config.rx_size + config.tx_size) * 8;
+    config.num_frames = config.rx_size * 8;
 
     if(config.busy_poll){
         INFO("BUSY POLLING\n");
@@ -223,5 +268,7 @@ void parse_args(int argc, char *argv[])
     INFO("Batch Size: %d\n", config.batch_size);
     INFO("Rx Ring Size: %d\n", config.rx_size);
     INFO("Tx Ring Size: %d\n", config.tx_size);
+    INFO("Frame size: %d\n", config.frame_size);
+    INFO("Number of frames: %d\n", config.num_frames);
 }
 

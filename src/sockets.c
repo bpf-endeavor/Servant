@@ -45,26 +45,55 @@ int load_xdp_program(char *xdp_filename, int ifindex)
 	return 0;
 }
 
+static int check_existing_xdp_prog(void)
+{
+	int xdp_flags = XDP_FLAGS_UPDATE_IF_NOEXIST | config.xdp_mode;
+	uint32_t prog_id;
+	int ret;
+	ret = bpf_get_link_xdp_id(config.ifindex, &prog_id, xdp_flags);
+	if (ret < 0) {
+		ERROR("Failed to get link program id\n");
+		return 1;
+	} else {
+		if (prog_id > 0) {
+			INFO("There is already a loaded XDP (id: %d)\n", prog_id);
+			INFO("Detaching the XDP program and trying ...\n", prog_id);
+			bpf_set_link_xdp_fd(config.ifindex, -1, xdp_flags);
+		}
+	}
+	return 0;
+}
+
 struct xsk_socket_info *setup_socket(char *ifname, uint32_t qid)
 {
 	struct xsk_umem_info *umem = NULL;
 	int ret = 0;
 	void *bufs = NULL;
 	struct xsk_socket_info *xsk;
-	/* struct bpf_object *xdp_obj; */
+
+	if (!config.custom_kern_prog && check_existing_xdp_prog()) {
+		return NULL;
+	}
 
 	// memory for umem
 	uint64_t umem_size = config.num_frames * config.frame_size;
-	bufs = mmap(NULL, umem_size,
+	const void *memory_off = (void *)((1LL << 30) * 4) ;
+	bufs = mmap(memory_off, umem_size,
 			PROT_READ | PROT_WRITE,
-			MAP_PRIVATE | MAP_ANONYMOUS | MAP_HUGETLB, -1, 0);
+			MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED | MAP_HUGETLB,
+			-1, 0);
 	if (bufs == MAP_FAILED) {
 		ERROR("mmap failed\n");
-		INFO("Not enough huge page memory available\n");
+		INFO("Probably, not enough huge page memory available\n");
 		return NULL;
 	}
 	// creating umem
-	const uint32_t fill_size = config.rx_size * 2;
+	const uint32_t fill_size = config.rx_size * 8;
+	if (fill_size > config.num_frames) {
+		ERROR("Internall error: fill queue size is larger than the number of available memory chunks\n");
+		munmap(bufs, umem_size);
+		return NULL;
+	}
 	{
 		struct xsk_umem_config cfg = {
 			.fill_size = fill_size,
@@ -92,9 +121,9 @@ struct xsk_socket_info *setup_socket(char *ifname, uint32_t qid)
 			ERROR("populate fill ring!\n");
 			exit(EXIT_FAILURE);
 		}
-		for (int i = 0; i < fill_size; i++) {
-			*xsk_ring_prod__fill_addr(&umem->fq, idx++) =
-				i * config.frame_size;
+		for (uint32_t i = 0; i < fill_size; i++) {
+			const uint64_t addr = i * config.frame_size;
+			*xsk_ring_prod__fill_addr(&umem->fq, idx++) = addr;
 		}
 		xsk_ring_prod__submit(&umem->fq, fill_size);
 	}

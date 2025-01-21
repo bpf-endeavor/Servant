@@ -6,7 +6,14 @@
 
 #include "labels.h"
 
+#define DEFAULT_HEADROOM_SIZE 256
+#define DEFAULT_FRAME_SIZE_INTEL 2048
+#define DEFAULT_FRAME_SIZE_MLX5 4096
+#define DEFAULT_RING_SIZE 512
+#define DEFAULT_BATCH_SIZE 32
+#define DEFAULT_BUSYPOLL_DURATION 20
 #define MAX_NUM_PROGS 4
+#define MAX_NUM_MAPS 10
 struct config {
     int terminate;
     // Ring Configuration

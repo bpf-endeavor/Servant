@@ -1,12 +1,18 @@
+DIR := $(dir $(lastword $(MAKEFILE_LIST)))
+LIBBPF_INSTALL_DIR="$(DIR)/../_deps/libbpf/src/build/usr/"
 CLANG ?= clang
 LLC ?= llc
 CC := gcc
 KERN_OBJECTS ?=
 USER_OBJECTS ?=
-CFLAGS := -g -O2 -Wall
-LDFLAGS ?= -lbpf -lelf -lpthread $(USER_LIBS)
-NOSTDINC_FLAGS := -nostdinc -isystem $(shell $(CC) -print-file-name=include) \
-	-isystem /usr/local/include -isystem /usr/include -isystem /usr/include/x86_64-linux-gnu
+CFLAGS := -g -O2 -Wall -I "$(LIBBPF_INSTALL_DIR)/include"
+LDFLAGS ?= -L "$(LIBBPF_INSTALL_DIR)/lib64" -lbpf -lelf -lpthread $(USER_LIBS)
+NOSTDINC_FLAGS := -nostdinc \
+				  -isystem $(shell $(CC) -print-file-name=include) \
+				  -isystem /usr/local/include \
+				  -isystem /usr/include \
+				  -isystem /usr/include/x86_64-linux-gnu \
+				  -I "$(LIBBPF_INSTALL_DIR)/include"
 ARCH=$(shell uname -m | sed 's/x86_64/x86/' | sed 's/i386/x86/')
 EXTRA_CFLAGS ?= -Werror
 OUTDIR ?= ./

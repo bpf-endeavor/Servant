@@ -11,7 +11,7 @@ curdir=`realpath $curdir`
 loader="$curdir/bin/loader"
 servant="$curdir/../../src/servant"
 servant=`realpath $servant`
-queue=2
+queue=4
 ring_size=512
 
 usage() {
