@@ -5,7 +5,7 @@
 
 #define __inline static inline __attribute__((always_inline))
 #define MAX(a,b) (((a) < (b)) ? (b) : (a))
-#define CHUNK_ALIGN(a) ((a) & (config.frame_size - 1))
+#define CHUNK_ALIGN(a) ((a) & DEFAULT_CHUNK_MASK)
 
 __inline void kick_tx(struct xsk_socket_info *xsk)
 {
@@ -92,7 +92,7 @@ __inline uint32_t drop(struct xsk_socket_info *xsk,
 
 	for (i = 0; i < cnt; i++) {
 		fqd = xsk_ring_prod__fill_addr(&xsk->umem->fq, idx_target++);
-		*fqd = batch[i].addr;
+		*fqd = CHUNK_ALIGN(batch[i].addr);
 	}
 	xsk_ring_prod__submit(&xsk->umem->fq, cnt);
 	/* xsk_ring_cons__release(&xsk->rx, cnt); */

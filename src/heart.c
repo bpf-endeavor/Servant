@@ -186,7 +186,7 @@ apply_action(struct xsk_socket_info *xsk, const struct xdp_desc *desc,
 #include <linux/ip.h>
 static int check_is_for_this_server(void *ctx)
 {
-	static const uint8_t mac[6] = {0x0c,0x42,0xa1,0xdd,0x5f,0xdc};
+	static const uint8_t mac[6] = {0x9c,0xdc,0x71,0x5e,0x0f,0x41};
 	static const uint32_t server_ip = 0x0101a8c0; // 0xC0A80101
 	static char tmp_mac[32];
 	struct ethhdr *eth = ctx;

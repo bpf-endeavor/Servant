@@ -135,8 +135,9 @@ void parse_args(int argc, char *argv[])
                 INFO("Number of frames is determined automatically\n");
                 break;
             case FRAME_SIZE:
-                config.frame_size = atoi(optarg);
-                config.frame_shift = log2(config.frame_size);
+                INFO("You can not change the frame size anymore\n");
+                /* config.frame_size = atoi(optarg); */
+                /* config.frame_shift = log2(config.frame_size); */
                 break;
             case BATCH_SIZE:
                 config.batch_size = atoi(optarg);
@@ -227,15 +228,16 @@ void parse_args(int argc, char *argv[])
     if (config.frame_size == 0) {
 	    // User has not specified the frame size, continue with driver
 	    // specific default value
-	    switch(get_driver_family(config.ifname)) {
-		    case INTEL:
-			    config.frame_size = DEFAULT_FRAME_SIZE_INTEL;
-			    break;
-		    default:
-			    config.frame_size = DEFAULT_FRAME_SIZE_MLX5;
-			    break;
-	    }
-	    config.frame_shift = log2(config.frame_size);
+	    /* switch(get_driver_family(config.ifname)) { */
+		    /* case INTEL: */
+			    /* config.frame_size = DEFAULT_FRAME_SIZE_INTEL; */
+			    /* break; */
+		    /* default: */
+			    /* config.frame_size = DEFAULT_FRAME_SIZE_MLX5; */
+			    /* break; */
+	    /* } */
+        config.frame_size = DEFAULT_FRAME_SIZE;
+        config.frame_shift = log2(config.frame_size);
     }
 
     // How many descriptors are needed

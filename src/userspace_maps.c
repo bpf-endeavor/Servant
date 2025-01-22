@@ -234,7 +234,7 @@ int launch_userspace_maps_server(struct server_conf *config)
 	}
 	*/
 
-	/* __configure_katran_maps(config->vm); */
+	__configure_katran_maps(config->vm);
 
 	return 0;
 }
