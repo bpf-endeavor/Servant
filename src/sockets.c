@@ -97,7 +97,7 @@ struct xsk_socket_info *setup_socket(char *ifname, uint32_t qid)
 	{
 		struct xsk_umem_config cfg = {
 			.fill_size = fill_size,
-			.comp_size = config.tx_size * 2,
+			.comp_size = fill_size,
 			.frame_size = config.frame_size,
 			.frame_headroom = config.headroom,
 			.flags = 0

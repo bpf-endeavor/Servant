@@ -7,6 +7,7 @@
 #include <stdlib.h> // exit
 #include <sys/socket.h> // sendto
 #include <errno.h>
+#include <time.h>
 #include "config.h"
 #include "heart.h"
 #include "brain.h"
@@ -15,7 +16,6 @@
 #include "interpose_link.h"
 #include "udp_socket.h"
 
-#include <time.h>
 
 /* #define USE_POLL */
 #define SHOW_THROUGHPUT
@@ -50,136 +50,41 @@ static uint8_t has_yield = 0;
 static uint8_t yield_state[128];
 static uint8_t fn_counter = 0;
 
-static inline __attribute__((always_inline)) void
-apply_action(struct xsk_socket_info *xsk, const struct xdp_desc *desc,
-		verdict_t action)
+__inline void do_pass(struct xsk_socket_info *xsk, const struct xdp_desc *desc)
 {
 	int ret;
-	if (action == SEND) {
-		/* tx(xsk, desc, 1); */
-		drop(xsk, desc, 1);
-	} else if (action == PASS) {
-		assert(0);
-		uint64_t addr = desc->addr;
-		addr = xsk_umem__add_offset_to_addr(addr);
-		void *ctx = xsk_umem__get_data(xsk->umem->buffer, addr);
+	uint64_t addr = desc->addr;
+	addr = xsk_umem__add_offset_to_addr(addr);
+	void *ctx = xsk_umem__get_data(xsk->umem->buffer, addr);
 
-		if (config.use_packet_injection) {
-			/* Send to application using the interpose layer */
-			/* Note: On the other side interpose.c cxpects both IP and UDP
-			 * headers to answer "recvfrom" request.
-			 * uBPF program should trim ethernet header.
-			 * */
-			ret = send_interpose_msg(ctx, desc->len);
-			if (ret < 0) {
-				// failed to pass packet
-				ERROR("Failed to pass packect\n");
-			}
-			/* Packet data are copied to the shared channel the
-			 * AF_XDP descriptor can now be released.
-			 * */
-		} else {
-			/* Send through UDP socket expects IP and UDP headers.
-			 * An eBPF/TC program would remove the header added by
-			 * socket. As a result receiving application response
-			 * to the original sender.
-			 * */
-			// Use UDP socket to send packet to application
-			ret = send_udp_socket_msg(ctx, desc->len);
-			if (ret < 0) {
-				// failed to pass packet
-				ERROR("Failed to pass packet (UDP socket)\n");
-			}
+	if (config.use_packet_injection) {
+		/* Send to application using the interpose layer */
+		/* Note: On the other side interpose.c cxpects both IP and UDP
+		 * headers to answer "recvfrom" request.
+		 * uBPF program should trim ethernet header.
+		 * */
+		ret = send_interpose_msg(ctx, desc->len);
+		if (ret < 0) {
+			// failed to pass packet
+			ERROR("Failed to pass packect\n");
 		}
-		drop(xsk, desc, 1);
-	} else if (action == DROP) {
-		drop(xsk, desc, 1);
+		/* Packet data are copied to the shared channel the
+		 * AF_XDP descriptor can now be released.
+		 * */
 	} else {
-		DEBUG("Unknown Action (%d)\n", action);
-		drop(xsk, desc, 1);
+		/* Send through UDP socket expects IP and UDP headers.
+		 * An eBPF/TC program would remove the header added by
+		 * socket. As a result receiving application response
+		 * to the original sender.
+		 * */
+		// Use UDP socket to send packet to application
+		ret = send_udp_socket_msg(ctx, desc->len);
+		if (ret < 0) {
+			// failed to pass packet
+			ERROR("Failed to pass packet (UDP socket)\n");
+		}
 	}
 }
-
-/* void */
-/* apply_mix_action(struct xsk_socket_info *xsk, struct xdp_desc **batch, */
-/* 		struct pktctxbatch *ctx_batch, uint32_t cnt) */
-/* { */
-/* 	/1* DEBUG("apply_mix_action\n"); *1/ */
-/* 	int ret; */
-/* 	// 0 drop, 1 tx, 2 pass 3 yield */
-/* 	int action_count[2] = {}; */
-/* 	uint32_t index_target[2] = {}; */
-/* 	int reserved[2] = {}; */
-/* 	struct xsk_ring_prod *rings[2] = {}; */
-/* 	rings[0] = &xsk->umem->fq; */
-/* 	rings[1] = &xsk->tx; */
-
-/* 	// Count each action and prepare the descriptors */
-/* 	for (int i = 0; i < cnt; i++) { */
-/* 		batch[i]->len = ctx_batch->pkts[i].pkt_len; */
-/* 		batch[i]->addr += ctx_batch->pkts[i].trim_head; */
-/* 		if (ctx_batch->rets[i] == DROP) { */
-/* 			action_count[0]++; */
-/* 		} else if (ctx_batch->rets[i] == SEND) { */
-/* 			action_count[1]++; */
-/* 		} else if (ctx_batch->rets[i] == YIELD) { */
-/* 			yield_state[i] = fn_counter + 1; */
-/* 			has_yield = 1; */
-/* 		} else { */
-/* 			// not implemented yet */
-/* 			ERROR("action not found\n"); */
-/* 			continue; */
-/* 		} */
-/* 	} */
-/* 	/1* DEBUG("action count 0: %d 1: %d\n", action_count[0], action_count[1]); *1/ */
-
-/* 	// Try to reserve space on rings */
-/* 	for (int i = 0; i < 2; i++) { */
-/* 		if (action_count[i] < 1) { */
-/* 			continue; */
-/* 		} */
-/* 		ret = xsk_ring_prod__reserve(rings[i], action_count[i], &index_target[i]); */
-/* 		if (ret != action_count[i]) { */
-/* 			if (ret < 0) { */
-/* 				ERROR("Failed to reserve packets on queue!\n"); */
-/* 				exit(EXIT_FAILURE); */
-/* 			} */
-/* 			ERROR("Failed to reserve space on queue\n"); */
-/* 			continue; */
-/* 		} */
-/* 		reserved[i] = 1; */
-/* 		/1* DEBUG("reserve action %d: %d\n", i, action_count[i]); *1/ */
-/* 	} */
-
-/* 	// Place descriptors on rings */
-/* 	for (int i = 0; i < cnt; i++) { */
-/* 		uint64_t orig = xsk_umem__extract_addr(batch[i]->addr); */
-/* 		if (ctx_batch->rets[i] == DROP) { */
-/* 			*xsk_ring_prod__fill_addr(rings[0], index_target[0]) = orig; */
-/* 			index_target[0]++; */
-/* 		} else if (ctx_batch->rets[i] == SEND) { */
-/* 			// Index of descriptors in the umem */
-/* 			xsk_ring_prod__tx_desc(rings[1], index_target[1])->addr = orig; */
-/* 			xsk_ring_prod__tx_desc(rings[1], index_target[1])->len = batch[i]->len; */
-/* 			index_target[1]++; */
-/* 		} else { */
-/* 			// Not implemented */
-/* 			/1* ERROR("placing descriptor action not found\n"); *1/ */
-/* 			continue; */
-/* 		} */
-/* 	} */
-
-/* 	// Submit queue */
-/* 	for (int i = 0; i < 2; i++) { */
-/* 		if (reserved[i] > 0) { */
-/* 			xsk_ring_prod__submit(rings[i], action_count[i]); */
-/* 			xsk_ring_cons__release(&xsk->rx, action_count[i]); */
-/* 		} */
-/* 	} */
-/* 	if (action_count[1]) { */
-/* 		xsk->outstanding_tx += action_count[1]; */
-/* 	} */
-/* } */
 
 #ifdef DBG_CHECK_INCOMING_PKTS
 #include <linux/if_ether.h>
@@ -231,6 +136,7 @@ static int check_is_for_this_server(void *ctx)
 void
 pump_packets(struct xsk_socket_info *xsk, struct ubpf_vm *vm)
 {
+	int ret;
 #ifdef SHOW_THROUGHPUT
 	static uint64_t pkt_count = 0;
 	static uint64_t sent_count = 0;
@@ -293,8 +199,6 @@ pump_packets(struct xsk_socket_info *xsk, struct ubpf_vm *vm)
 
 		if (xsk->outstanding_tx > 0)
 			complete_tx(xsk);
-		/* if (ret > 0) */
-		/* 	empty_rx--; */
 
 #ifdef USE_POLL
 		if (empty_rx >= 8) {
@@ -363,7 +267,6 @@ pump_packets(struct xsk_socket_info *xsk, struct ubpf_vm *vm)
 #endif
 #else
 			ubpf_jit_fn fn = bpf_progs[fn_counter];
-			__builtin_prefetch(&ubpf_set_batch_offset, 0, 3);
 			for (uint32_t i = 0; i < rx; i++) {
 				if (fn_counter != yield_state[i]) {
 					/* The verdict is known */
@@ -393,17 +296,26 @@ pump_packets(struct xsk_socket_info *xsk, struct ubpf_vm *vm)
 					ERROR("trim_head is larger than the configured headroom size\n");
 					pkt_batch.rets[i] = DROP;
 				} else  {
-					if (pktctx->trim_head != 0) {
-						DEBUG("trim head: %d\n", pktctx->trim_head);
-					}
-					/* batch[i]->addr += pktctx->trim_head; */
+					batch[i].addr += pktctx->trim_head;
 				}
 
-				/* Update the states if the VM has yielded */
-				if (pkt_batch.rets[i] == YIELD) {
-					/* move to the new stage */
-					yield_state[i] = fn_counter + 1;
-					has_yield = 1;
+				switch (pkt_batch.rets[i]) {
+					case DROP:
+						xsk->batch.drop++;
+						break;
+					case SEND:
+						xsk->batch.tx++;
+						break;
+					case PASS:
+						/* will eventually put the descriptor on the fill queue */
+						xsk->batch.drop++;
+						break;
+					case YIELD:
+						/* Update the states if the VM has yielded */
+						/* move to the new stage */
+						yield_state[i] = fn_counter + 1;
+						has_yield = 1;
+						break;
 				}
 			}
 			fn_counter++;
@@ -412,28 +324,62 @@ pump_packets(struct xsk_socket_info *xsk, struct ubpf_vm *vm)
 		if (has_yield) {
 			ERROR("Found yield in the last stage!\n");
 			has_yield = 0;
+			for (uint32_t i = 0; i < rx; i++) {
+				if (pkt_batch.rets[i] == YIELD) {
+					pkt_batch.rets[i] = DROP;
+					xsk->batch.drop++;
+				}
+			}
 		}
 
-		/* NOTE: the actions should applied in order (we are releasing
-		 * the rx ring so order matters)
-		 * */
+		/* reserve the descriptors on the rings */
+		uint32_t fq_index = 0;
+		uint32_t tx_index = 0;
+		do {
+_repeat_fq:
+			ret = xsk_ring_prod__reserve(&xsk->umem->fq,
+					xsk->batch.drop, &fq_index);
+			if (ret != xsk->batch.drop) {
+				kick_rx(xsk);
+				goto _repeat_fq;
+			}
+		} while(0);
+		do {
+_repeat_tx:
+			ret = xsk_ring_prod__reserve(&xsk->tx,
+					xsk->batch.tx, &tx_index);
+			if (ret != xsk->batch.tx) {
+				kick_tx(xsk);
+				goto _repeat_tx;
+			}
+		} while(0);
+
+		/* Actually place the descriptors on the ring */
 		for (uint32_t i = 0; i < rx; i++) {
-			verdict_t ret = pkt_batch.rets[i];
-			if (ret == YIELD) {
-				/* we should not yield in the last round */
-				ret = DROP;
+			switch (pkt_batch.rets[i]) {
+				case SEND:
+					*xsk_ring_prod__tx_desc(&xsk->tx, tx_index++) = batch[i];
+					break;
+				case PASS:
+					do_pass(xsk, &batch[i]);
+					*xsk_ring_prod__fill_addr(&xsk->umem->fq, fq_index++) = CHUNK_ALIGN(batch[i].addr);
+					break;
+				default:
+					ERROR("Unexpected verdict\n");
+					/* fallthrough */
+				case DROP:
+					*xsk_ring_prod__fill_addr(&xsk->umem->fq, fq_index++) = CHUNK_ALIGN(batch[i].addr);
+					break;
 			}
-#ifdef SHOW_THROUGHPUT
-			else if (ret == SEND) {
-				sent_count++;
-			}
-#endif
-
-			/* if (ret == DROP) { */
-			/* 	DEBUG("a drop verdict!\n"); */
-			/* } */
-			apply_action(xsk, &batch[i], ret);
 		}
+		xsk_ring_prod__submit(&xsk->tx, xsk->batch.tx);
+		xsk_ring_prod__submit(&xsk->umem->fq, xsk->batch.drop);
+		xsk->outstanding_tx += xsk->batch.tx;
+#ifdef SHOW_THROUGHPUT
+		sent_count += xsk->batch.tx;
+#endif
+		xsk->batch.drop = 0;
+		xsk->batch.tx = 0;
 		release_rx_queue(xsk, rx);
 
 #ifdef SHOW_THROUGHPUT

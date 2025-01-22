@@ -36,6 +36,14 @@ struct xsk_umem_info {
     void *buffer;
 };
 
+// For the current batch that we are processing, store the following info:
+struct batch_stats {
+	// number of packets going to tx queue
+	uint32_t tx;
+	// number of packets going to fill queue
+	uint32_t drop;
+};
+
 struct xsk_socket_info {
     struct xsk_ring_cons rx;
     struct xsk_ring_prod tx;
@@ -45,5 +53,6 @@ struct xsk_socket_info {
     struct xsk_app_stats app_stats;
     struct xsk_driver_stats drv_stats;
     unsigned int outstanding_tx;
+    struct batch_stats batch;
 };
 #endif

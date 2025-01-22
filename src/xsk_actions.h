@@ -75,29 +75,29 @@ __inline void release_rx_queue(struct xsk_socket_info *xsk,
  * @return Number of packets placed into the fill queue. Zero if failed
  * otherwise it would be equal to cnt.
  */
-__inline uint32_t drop(struct xsk_socket_info *xsk,
-		const struct xdp_desc *batch, const uint32_t cnt)
-{
-	uint32_t idx_target = 0;
-	uint32_t i;
-	uint32_t ret;
-	uint64_t *fqd;
+/* __inline uint32_t drop(struct xsk_socket_info *xsk, */
+/* 		const struct xdp_desc *batch, const uint32_t cnt) */
+/* { */
+/* 	uint32_t idx_target = 0; */
+/* 	uint32_t i; */
+/* 	uint32_t ret; */
+/* 	uint64_t *fqd; */
 
-	do {
-		ret = xsk_ring_prod__reserve(&xsk->umem->fq, cnt, &idx_target);
-		if (ret != cnt) {
-			kick_rx(xsk);
-		}
-	} while(ret != cnt);
+/* 	do { */
+/* 		ret = xsk_ring_prod__reserve(&xsk->umem->fq, cnt, &idx_target); */
+/* 		if (ret != cnt) { */
+/* 			kick_rx(xsk); */
+/* 		} */
+/* 	} while(ret != cnt); */
 
-	for (i = 0; i < cnt; i++) {
-		fqd = xsk_ring_prod__fill_addr(&xsk->umem->fq, idx_target++);
-		*fqd = CHUNK_ALIGN(batch[i].addr);
-	}
-	xsk_ring_prod__submit(&xsk->umem->fq, cnt);
-	/* xsk_ring_cons__release(&xsk->rx, cnt); */
-	return cnt;
-}
+/* 	for (i = 0; i < cnt; i++) { */
+/* 		fqd = xsk_ring_prod__fill_addr(&xsk->umem->fq, idx_target++); */
+/* 		*fqd = CHUNK_ALIGN(batch[i].addr); */
+/* 	} */
+/* 	xsk_ring_prod__submit(&xsk->umem->fq, cnt); */
+/* 	/1* xsk_ring_cons__release(&xsk->rx, cnt); *1/ */
+/* 	return cnt; */
+/* } */
 
 /**
  * Places cnt number of packets from batch to tx queue
@@ -109,26 +109,26 @@ __inline uint32_t drop(struct xsk_socket_info *xsk,
  * @return Number of packets placed into the fill queue. Zero if failed
  * otherwise it would be equal to cnt.
  */
-__inline uint32_t tx(struct xsk_socket_info *xsk, const struct xdp_desc *batch,
-		const uint32_t cnt)
-{
-	uint32_t idx_target = 0;
-	uint32_t i = 0;
-	int ret = 0;
-	do {
-		ret = xsk_ring_prod__reserve(&xsk->tx, cnt, &idx_target);
-		if (ret != cnt) {
-			kick_tx(xsk);
-		}
-	} while(ret != cnt);
+/* __inline uint32_t tx(struct xsk_socket_info *xsk, const struct xdp_desc *batch, */
+/* 		const uint32_t cnt) */
+/* { */
+/* 	uint32_t idx_target = 0; */
+/* 	uint32_t i = 0; */
+/* 	int ret = 0; */
+/* 	do { */
+/* 		ret = xsk_ring_prod__reserve(&xsk->tx, cnt, &idx_target); */
+/* 		if (ret != cnt) { */
+/* 			kick_tx(xsk); */
+/* 		} */
+/* 	} while(ret != cnt); */
 
-	for (i = 0; i < cnt; i++)
-		*xsk_ring_prod__tx_desc(&xsk->tx, idx_target++) = batch[i];
-	xsk->outstanding_tx += cnt;
-	xsk_ring_prod__submit(&xsk->tx, cnt);
-	/* xsk_ring_cons__release(&xsk->rx, cnt); */
-	return cnt;
-}
+/* 	for (i = 0; i < cnt; i++) */
+/* 		*xsk_ring_prod__tx_desc(&xsk->tx, idx_target++) = batch[i]; */
+/* 	xsk->outstanding_tx += cnt; */
+/* 	xsk_ring_prod__submit(&xsk->tx, cnt); */
+/* 	/1* xsk_ring_cons__release(&xsk->rx, cnt); *1/ */
+/* 	return cnt; */
+/* } */
 
 /* Service the completion queue. Move the descriptors successfully transmitted
  * by the kernel to the fill queue for receiving new incomming requests.
