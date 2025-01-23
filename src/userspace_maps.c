@@ -153,9 +153,9 @@ struct real_definition {
 static void __configure_katran_maps(void *vm)
 {
 	int ret;
+	uint32_t real_index = 1;
 	int vip, dst;
 	short vip_port = 8080;
-	uint8_t vip_proto = IPPROTO_UDP;
 	ret = inet_pton(AF_INET, "192.168.1.1", &vip);
 	assert (ret == 1);
 	ret = inet_pton(AF_INET, "192.168.1.2", &dst);
@@ -166,52 +166,69 @@ static void __configure_katran_maps(void *vm)
 	 * Create one hash map (instead of the LRU map used in katran)
 	 * Insert it into the map-of-maps at index 0
 	 * */
-	uint64_t zero = 0;
-	/* struct ubpf_map_def lru_map_def = { */
-	/* 	.type = UBPF_MAP_TYPE_HASHMAP, /1* TODO: katran uses LRU map *1/ */
-	/* 	.key_size = sizeof(struct flow_key), */
-	/* 	.value_size = sizeof(struct real_pos_lru), */
-	/* 	.max_entries = 8000000, */
-	/* 	.nb_hash_functions = 1, */
-	/* }; */
-	/* void *lru_map = ubpf_create_map("_lru_map_0", &lru_map_def, vm); */
-	/* assert (lru_map != NULL); */
-	/* void *lru_mapping = ubpf_select_map("lru_mapping", vm); */
-	/* assert(lru_mapping != NULL); */
-	/* ret = ubpf_update_map(lru_mapping, &zero, lru_map); */
-	/* /1* printf("%d\n", ret); *1/ */
-	/* assert (ret == 0); */
 
 	/* Configure the routing info */
 	void *vip_map = ubpf_select_map("vip_map", vm);
 	assert (vip_map != NULL);
-	struct vip_definition vipdef = {};
-	vipdef.vip = vip;
-	vipdef.port = htons(vip_port);
-	vipdef.proto = vip_proto;
-	struct vip_meta vipmeta = {
-		.flags = 0,
-		.vip_num = 0,
-	};
-	ret = ubpf_update_map(vip_map, &vipdef, &vipmeta);
-	assert (ret == 0);
-	void *m = ubpf_lookup_map(vip_map, &vipdef);
-	assert (m != NULL);
-
 	void *ch_rings = ubpf_select_map("ch_rings", vm);
 	assert (ch_rings != NULL);
-	ret = ubpf_update_map(ch_rings, &zero, &zero);
-	assert(ret == 0);
-
-	struct real_definition realdef = {
-		.dst = dst,
-		.flags = 0,
-	};
 	void *reals = ubpf_select_map("reals", vm);
 	assert (reals != NULL);
-	ret = ubpf_update_map(reals, &zero, &realdef);
+	void *server_id_map = ubpf_select_map("server_id_map", vm);
+	assert (reals != NULL);
+
+	struct vip_definition vipdefs[] = {
+		{.vip = vip, .port = htons(vip_port), .proto = IPPROTO_UDP},
+		{.vip = vip, .port = htons(vip_port), .proto = IPPROTO_TCP},
+	};
+	for (size_t  i = 0; i < (sizeof(vipdefs) /sizeof(vipdefs[0])); i++) {
+		/* NOTE: to avoid strange things happenning (vip_definition has
+		 * members of type union); first set everything to zero and
+		 * then write over the values.
+		 * */
+		struct vip_definition vipdef = {};
+		vipdef.vip = vipdefs[i].vip;
+		vipdef.port = vipdefs[i].port;
+		vipdef.proto = vipdefs[i].proto;
+		struct vip_meta vipmeta = {
+			.flags = 0,
+			.vip_num = i,
+		};
+		ret = ubpf_update_map(vip_map, &vipdef, &vipmeta);
+		assert (ret == 0);
+		void *m = ubpf_lookup_map(vip_map, &vipdef);
+		assert (m != NULL);
+		 /* The `ring_size` is set in the eBPF program. Make sure the
+		 * definitions match.
+		 * */
+		const uint32_t ring_size = 65537;
+		uint32_t index = i * ring_size;
+		for (size_t j = 0; j < ring_size; j++) {
+			/* 1. There is one server per VIP ==> All the ring is
+			 * given to one real
+			 * 2. Actually, there is one server configured for all
+			 * VIPs
+			 * */
+			ret = ubpf_update_map(ch_rings, &index, &real_index);
+			assert(ret == 0);
+			index++;
+		}
+	}
+
+	/* I am configuring the server_id_map so that every server id is mapped
+	 * to our only real server
+	 * max_server_ids is configured on the eBPF program size (the map size)
+	 * */
+	const size_t max_server_ids = 0x00fffffe; // MAX_QUIC_REALS
+	for (size_t i =0; i < max_server_ids; i++) {
+		ret = ubpf_update_map(server_id_map, &i, &real_index);
+		assert(ret == 0);
+	}
+
+	struct real_definition realdef = { .dst = dst, .flags = 0, };
+	ret = ubpf_update_map(reals, &real_index, &realdef);
 	assert (ret == 0);
-	printf("update katran maps!\n");
+	printf("Configured Katran maps!\n");
 }
 
 int launch_userspace_maps_server(struct server_conf *config)

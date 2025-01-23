@@ -96,7 +96,8 @@ static int check_is_for_this_server(void *ctx)
 	static char tmp_mac[32];
 	struct ethhdr *eth = ctx;
 	struct iphdr *ip = (struct iphdr *)(eth + 1);
-	if (eth->h_proto != htons(ETH_P_IP) || ip->protocol != IPPROTO_UDP) {
+	/* if (eth->h_proto != htons(ETH_P_IP) || ip->protocol != IPPROTO_UDP) { */
+	if (eth->h_proto != htons(ETH_P_IP) || ip->protocol != IPPROTO_TCP) {
 		DEBUG("unexpected inner protocol! (eth: %d ip: %d)\n", eth->h_proto, ip->protocol);
 		return -1;
 	}
