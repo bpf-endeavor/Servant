@@ -21,7 +21,7 @@
 #define SHOW_THROUGHPUT
 /* #define VM_CALL_BATCHING */
 /* #define REPORT_UBPF_OVERHEAD */
-#define DBG_CHECK_INCOMING_PKTS
+/* #define DBG_CHECK_INCOMING_PKTS */
 
 
 #ifdef USE_POLL
@@ -182,9 +182,15 @@ pump_packets(struct xsk_socket_info *xsk, struct ubpf_vm *vm)
 		}
 	}
 
+	/* TODO: this is just a hack ... */
+	void *_tmp = ubpf_select_map("server_id_map", vm);
+	uint32_t _zero = 0;
+	uint32_t *server_id_map_base = ubpf_lookup_map(_tmp, &_zero);
+	/* --------------------------------------------------------------- */
+
 	void *meta[cnt];
 	for (int i = 0; i < cnt; i++) {
-		meta[i] = malloc(METADATA_SIZE);
+		meta[i] = malloc(SERVANT_METADATA_SIZE);
 		if (meta[i] == NULL) {
 			ERROR("Out of memory while allocating metadata region\n");
 			for (int j = 0; j < i; j++)
@@ -192,6 +198,11 @@ pump_packets(struct xsk_socket_info *xsk, struct ubpf_vm *vm)
 			return;
 		}
 		pkt_batch.pkts[i].meta = meta[i];
+		/* TODO: the next line is just a hack to pass an address to
+		 * Katran with 3phase lookup optimization */
+		pkt_batch.pkts[i].help.server_id_map_base =
+			(uint64_t)server_id_map_base;
+		/* --------------------------------------------------------- */
 	}
 
 	for(;;) {
@@ -246,6 +257,9 @@ pump_packets(struct xsk_socket_info *xsk, struct ubpf_vm *vm)
 				yield_state[i] = (uint8_t)-1;
 			}
 #endif
+			/* Make sure the program state machine is clean */
+			memset(pkt_batch.pkts[i].meta, 0,
+					SERVANT_INTER_STAGE_STATE_SIZE);
 		}
 
 		/* Start of the yield-chain */
@@ -267,7 +281,8 @@ pump_packets(struct xsk_socket_info *xsk, struct ubpf_vm *vm)
 					sent_count++;
 #endif
 #else
-			ubpf_jit_fn fn = bpf_progs[fn_counter];
+			/* ubpf_jit_fn fn = bpf_progs[fn_counter]; */
+			ubpf_jit_fn fn = bpf_progs[0];
 			for (uint32_t i = 0; i < rx; i++) {
 				if (fn_counter != yield_state[i]) {
 					/* The verdict is known */
@@ -320,7 +335,8 @@ pump_packets(struct xsk_socket_info *xsk, struct ubpf_vm *vm)
 				}
 			}
 			fn_counter++;
-		} while(has_yield && fn_counter < config.yield_sz);
+		/* } while(has_yield && fn_counter < config.yield_sz); */
+		} while(has_yield && fn_counter < 8);
 #endif
 		if (has_yield) {
 			ERROR("Found yield in the last stage!\n");
