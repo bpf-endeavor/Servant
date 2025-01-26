@@ -282,7 +282,7 @@ pump_packets(struct xsk_socket_info *xsk, struct ubpf_vm *vm)
 #endif
 #else
 			/* ubpf_jit_fn fn = bpf_progs[fn_counter]; */
-			ubpf_jit_fn fn = bpf_progs[0];
+			const ubpf_jit_fn fn = bpf_progs[0];
 			for (uint32_t i = 0; i < rx; i++) {
 				if (fn_counter != yield_state[i]) {
 					/* The verdict is known */
@@ -312,6 +312,9 @@ pump_packets(struct xsk_socket_info *xsk, struct ubpf_vm *vm)
 					ERROR("trim_head is larger than the configured headroom size\n");
 					pkt_batch.rets[i] = DROP;
 				} else  {
+					if (pktctx->trim_head != 0) {
+						DEBUG("trim head = %d\n", pktctx->trim_head);
+					}
 					batch[i].addr += pktctx->trim_head;
 				}
 

@@ -25,11 +25,11 @@ uint64_t readTSC() {
     return tsc;
 }
 
-static inline void
-_memmove(void *d, void *s, uint32_t n)
-{
-	memmove(d, s, n);
-}
+/* static inline void */
+/* _memmove(void *d, void *s, uint32_t n) */
+/* { */
+/* 	memmove(d, s, n); */
+/* } */
 
 /* static inline void * __attribute__((always_inline)) */
 /* _ubpf_lookup_map(struct ubpf_map *m, void *k) */
@@ -83,7 +83,7 @@ register_engine_functions(struct ubpf_vm *vm)
 		/* get the CPU timestamp counter */
 		{"rdtsc", readTSC},
 		/* memmove */
-		{"ubpf_memmove", _memmove},
+		{"ubpf_memmove", memmove},
 		/* Userspace maps (From uBPF library) */
 		{"_userspace_lookup", ubpf_lookup_map},
 		{"_userspace_update", _ubpf_update_map},
@@ -266,4 +266,3 @@ setup_ubpf_engine(char *program_path, struct ubpf_vm **_vm)
 /* 	/1* DEBUG("ubpf ret: %d\n", ret); *1/ */
 /* 	return ret; */
 /* } */
-
