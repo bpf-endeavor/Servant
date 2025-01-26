@@ -27,6 +27,4 @@ int setup_ubpf_engine(char *program_path, struct ubpf_vm **vm);
  * @return Return code from the eBPF program.
  */
 int run_vm(struct ubpf_vm *vm, void *ctx, size_t ctx_len);
-
 #endif
-

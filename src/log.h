@@ -12,13 +12,12 @@ enum log_level {
   LVL_INFO = 500,
   LVL_DEBUG,
   LVL_ERROR,
-
 };
 
 extern int _output_log_fd;
 
 /**
- * Write a message to output stream 
+ * Write a message to output stream
  */
 void msg(enum log_level level, const char *func, const char *file, int line,
     const char *fmt, ...);

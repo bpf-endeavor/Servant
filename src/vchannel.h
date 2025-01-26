@@ -12,46 +12,46 @@
  * Internal representation of messages stored in shared memory
  */
 struct _interpose_msg {
-	uint8_t data[MAX_SHARED_OBJ_SIZE];
-	uint32_t size;
-	uint32_t index;
-	uint32_t valid;
+  uint8_t data[MAX_SHARED_OBJ_SIZE];
+  uint32_t size;
+  uint32_t index;
+  uint32_t valid;
 } __attribute__((packed,aligned(64)));
 
 /**
  * This struct is the layout of the shared memory region
  */
 struct _shared_channel {
-	uint64_t master_virt_addr; // what is the start of virtual address
-	uint64_t region_size; // Total size of the shared memory
-	int connected; // allow at most two objects to connect
-	uint32_t ring_size; // slots in a ring
-	/* uint32_t in; */
-	/* uint32_t out; */
-	struct llring *rings[COUNT_RINGS]; // rings[i] is for messages that are send to proc_i
-	/* pthread_spinlock_t lock; */
-	size_t count_elements; // Count elements in obj pool (also stack size)
-	/* int stack_top; // index of the top element in stack */
-	/* uint32_t *index_stack; */
-	uint32_t ring_top;
-	struct _interpose_msg *shared_objs; // shared objects are placed here
+  uint64_t master_virt_addr; // what is the start of virtual address
+  uint64_t region_size; // Total size of the shared memory
+  int connected; // allow at most two objects to connect
+  uint32_t ring_size; // slots in a ring
+  /* uint32_t in; */
+  /* uint32_t out; */
+  struct llring *rings[COUNT_RINGS]; // rings[i] is for messages that are send to proc_i
+  /* pthread_spinlock_t lock; */
+  size_t count_elements; // Count elements in obj pool (also stack size)
+  /* int stack_top; // index of the top element in stack */
+  /* uint32_t *index_stack; */
+  uint32_t ring_top;
+  struct _interpose_msg *shared_objs; // shared objects are placed here
 };
 
 /**
  * A non-shared object for accessing the shared channel
  */
 struct vchannel {
-	char *name; // name of the queue/shared region
-	int proc_id;
-	struct _shared_channel *ch;
+  char *name; // name of the queue/shared region
+  int proc_id;
+  struct _shared_channel *ch;
 };
 
 /**
  * Information used for creating or connecting to a channel
  */
 struct channel_attr {
-	char *name;
-	uint32_t ring_size;
+  char *name;
+  uint32_t ring_size;
 };
 
 /**

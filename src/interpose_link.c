@@ -5,31 +5,31 @@
 static struct vchannel vc;
 
 int setup_interpose_link(void) {
-	return setup_interpose_vchannel(&vc);
+  return setup_interpose_vchannel(&vc);
 }
 
 int setup_interpose_vchannel(struct vchannel *vc)
 {
-	static char channel_name[] = "rx_data_inject";
-	struct channel_attr ch_attr = {
-		.name = channel_name,
-		.ring_size = 512,
-	};
-	int ret = connect_shared_channel(&ch_attr, vc);
-	if (ret) {
-		ERROR("Failed in connecting to shared channel\n");
-		return -1;
-	}
-	return 0;
+  static char channel_name[] = "rx_data_inject";
+  struct channel_attr ch_attr = {
+    .name = channel_name,
+    .ring_size = 512,
+  };
+  int ret = connect_shared_channel(&ch_attr, vc);
+  if (ret) {
+    ERROR("Failed in connecting to shared channel\n");
+    return -1;
+  }
+  return 0;
 }
 
 int teardown_interpose_link(void)
 {
-	disconnect(&vc);
-	return 0;
+  disconnect(&vc);
+  return 0;
 }
 
 int send_interpose_msg(void *buf, uint32_t size)
 {
-	return vc_tx_msg(&vc, buf, size);
+  return vc_tx_msg(&vc, buf, size);
 }

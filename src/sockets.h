@@ -2,7 +2,7 @@
 #define SOCKETS_H
 #include "defs.h"
 
-#define MAX_QID 63 
+#define MAX_QID 63
 
 /**
  * Create a new socket, allocate a new umem and setup queues
@@ -16,11 +16,11 @@ struct xsk_socket_info * setup_socket(char *ifname, uint32_t qid);
 
 /**
  * Destroy a socket info structure
- * 
+ *
  * @param xsk Socket to be destroyed.
  */
 void tear_down_socket(struct xsk_socket_info *xsk);
- 
+
 /**
  * Load an XDP program. If there is already another program attach will fail.
  *
@@ -28,7 +28,7 @@ void tear_down_socket(struct xsk_socket_info *xsk);
  */
 int load_xdp_program(char *xdp_filename, int ifindex);
 
-/** 
+/**
  * Add xsk socket to the xsks_map so that XDP redirect
  * packets to this socket.
  *

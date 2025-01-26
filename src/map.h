@@ -40,7 +40,7 @@ void ubpf_map_elem_release(void *ptr);
  * @return Returns zero on success
  */
 int ubpf_map_update_elem_kern(char *map_name, const void *key_ptr, void *value,
-		int flag);
+    int flag);
 
 /**
  * Setup map system by looking for the maps having the name given as argument.
