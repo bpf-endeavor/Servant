@@ -143,6 +143,7 @@ pump_packets(struct xsk_socket_info *xsk, struct ubpf_vm *vm)
       return;
     }
   }
+  const ubpf_jit_fn fn = bpf_progs[0];
 
   /* TODO: this is just a hack ... */
   void *_tmp = ubpf_select_map("server_id_map", vm);
@@ -211,7 +212,6 @@ pump_packets(struct xsk_socket_info *xsk, struct ubpf_vm *vm)
       pkt_batch.pkts[i].pkt_len = ctx_len;
       pkt_batch.pkts[i].trim_head = 0;
       pkt_batch.rets[i] = YIELD;
-      __builtin_prefetch(ctx);
 #ifdef DBG_CHECK_INCOMING_PKTS
       if (check_is_for_this_server(ctx) != 0) {
         pkt_batch.rets[i] = DROP;
@@ -228,24 +228,9 @@ pump_packets(struct xsk_socket_info *xsk, struct ubpf_vm *vm)
     do {
       has_yield = 0;
 
-#ifdef VM_CALL_BATCHING
-      // TODO: what to do if some packets do not require the next stage?
-      // TODO: how to set the ubpf batch offset in the program ?
-      /* Pass batch to the vm */
-      /* uint64_t start_ts = readTSC(); */
-      bpf_progs[fn_counter](&pkt_batch, sizeof(pkt_batch));
-      /* uint64_t end_ts = readTSC(); */
-      /* calc_latency_from_ts(start_ts, end_ts); */
-      apply_mix_action(xsk, batch, &pkt_batch, rx);
-#ifdef SHOW_THROUGHPUT
-      for (uint32_t i = 0; i < rx; i++)
-        if (pkt_batch.rets[i] == SEND)
-          sent_count++;
-#endif
-#else
       /* ubpf_jit_fn fn = bpf_progs[fn_counter]; */
-      const ubpf_jit_fn fn = bpf_progs[0];
       for (uint32_t i = 0; i < rx; i++) {
+        ubpf_set_batch_offset(i);
         if (fn_counter != yield_state[i]) {
           /* The verdict is known */
           /* DEBUG("old stage (%d != %d)\n", fn_counter, yield_state[i]); */
@@ -257,7 +242,6 @@ pump_packets(struct xsk_socket_info *xsk, struct ubpf_vm *vm)
         uint64_t start_ts = readTSC();
 #endif
 
-        ubpf_set_batch_offset(i);
         pkt_batch.rets[i] = fn(pktctx, sizeof(*pktctx));
 
 #ifdef REPORT_UBPF_OVERHEAD
@@ -302,7 +286,7 @@ pump_packets(struct xsk_socket_info *xsk, struct ubpf_vm *vm)
       fn_counter++;
       /* } while(has_yield && fn_counter < config.yield_sz); */
   } while(has_yield && fn_counter < 8);
-#endif
+
     if (has_yield) {
       ERROR("Found yield in the last stage!\n");
       has_yield = 0;
