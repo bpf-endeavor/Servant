@@ -44,9 +44,14 @@ uint64_t readTSC(void) {
 
 #include "xsk_actions.h"
 
+#define F_HAS_YIELDED (1 << 7)
+#define PROG_INDEX_MASK 0x7
+#define YIELD_MASK 0xffff
+#define YIELD_PROG_INDEX(y) ((y >> 16) & PROG_INDEX_MASK)
+#define MAX_NUM_STAGE 8
 static uint8_t has_yield = 0;
 static uint8_t yield_state[128];
-static uint8_t fn_counter = 0;
+static uint8_t stage_number = 0;
 
 #ifdef DBG_CHECK_INCOMING_PKTS
 #include <linux/if_ether.h>
@@ -143,7 +148,6 @@ pump_packets(struct xsk_socket_info *xsk, struct ubpf_vm *vm)
       return;
     }
   }
-  const ubpf_jit_fn fn = bpf_progs[0];
 
   /* TODO: this is just a hack ... */
   void *_tmp = ubpf_select_map("server_id_map", vm);
@@ -195,8 +199,7 @@ pump_packets(struct xsk_socket_info *xsk, struct ubpf_vm *vm)
     }
 
     /* Received a new batch of packets. reset the state */
-    memset(yield_state, 0, rx * sizeof(yield_state[0]));
-    fn_counter = 0;
+    stage_number = 0;
 
     /* Perpare batch */
     pkt_batch.cnt = rx;
@@ -211,29 +214,28 @@ pump_packets(struct xsk_socket_info *xsk, struct ubpf_vm *vm)
       pkt_batch.pkts[i].data_end = ctx + ctx_len;
       pkt_batch.pkts[i].pkt_len = ctx_len;
       pkt_batch.pkts[i].trim_head = 0;
-      pkt_batch.rets[i] = YIELD;
+      pkt_batch.rets[i] = 0;
+      /* Consider this packet for processing and start from program at zero index */
+      yield_state[i] = F_HAS_YIELDED;
 #ifdef DBG_CHECK_INCOMING_PKTS
       if (check_is_for_this_server(ctx) != 0) {
         pkt_batch.rets[i] = DROP;
         /* terminated before the first stage */
-        yield_state[i] = (uint8_t)-1;
+        yield_state[i] = 0; // Ignore processing of this program
       }
 #endif
       /* Make sure the program state machine is clean */
-      memset(pkt_batch.pkts[i].meta, 0,
-          SERVANT_INTER_STAGE_STATE_SIZE);
+      /* memset(pkt_batch.pkts[i].meta, 0, SERVANT_INTER_STAGE_STATE_SIZE); */
     }
 
     /* Start of the yield-chain */
     do {
       has_yield = 0;
 
-      /* ubpf_jit_fn fn = bpf_progs[fn_counter]; */
       for (uint32_t i = 0; i < rx; i++) {
         ubpf_set_batch_offset(i);
-        if (fn_counter != yield_state[i]) {
+        if ((yield_state[i] & F_HAS_YIELDED) == 0) {
           /* The verdict is known */
-          /* DEBUG("old stage (%d != %d)\n", fn_counter, yield_state[i]); */
           continue;
         }
         struct pktctx *const pktctx = &pkt_batch.pkts[i];
@@ -242,6 +244,8 @@ pump_packets(struct xsk_socket_info *xsk, struct ubpf_vm *vm)
         uint64_t start_ts = readTSC();
 #endif
 
+        const uint8_t prog_index = yield_state[i] & PROG_INDEX_MASK;
+        const ubpf_jit_fn fn = bpf_progs[prog_index];
         pkt_batch.rets[i] = fn(pktctx, sizeof(*pktctx));
 
 #ifdef REPORT_UBPF_OVERHEAD
@@ -275,23 +279,28 @@ pump_packets(struct xsk_socket_info *xsk, struct ubpf_vm *vm)
             /* will eventually put the descriptor on the fill queue */
             xsk->batch.drop++;
             break;
-          case YIELD:
-            /* Update the states if the VM has yielded */
-            /* move to the new stage */
-            yield_state[i] = fn_counter + 1;
-            has_yield = 1;
+          default:
+            if ((pkt_batch.rets[i] & YIELD_MASK) == YIELD) {
+              /* Update the states if the VM has yielded */
+              /* move to the new stage */
+              const uint8_t next_prog = YIELD_PROG_INDEX(pkt_batch.rets[i]);
+              yield_state[i] = next_prog | F_HAS_YIELDED;
+              has_yield = 1;
+            } else {
+              /* Unknown verdict */
+              xsk->batch.drop++;
+            }
             break;
         }
       }
-      fn_counter++;
-      /* } while(has_yield && fn_counter < config.yield_sz); */
-  } while(has_yield && fn_counter < 8);
+      stage_number++;
+    } while(has_yield && stage_number < MAX_NUM_STAGE);
 
     if (has_yield) {
       ERROR("Found yield in the last stage!\n");
       has_yield = 0;
       for (uint32_t i = 0; i < rx; i++) {
-        if (pkt_batch.rets[i] == YIELD) {
+        if ((pkt_batch.rets[i] & YIELD_MASK) == YIELD) {
           pkt_batch.rets[i] = DROP;
           xsk->batch.drop++;
         }
@@ -331,7 +340,7 @@ _repeat_tx:
           *xsk_ring_prod__fill_addr(&xsk->umem->fq, fq_index++) = CHUNK_ALIGN(batch[i].addr);
           break;
         default:
-          ERROR("Unexpected verdict\n");
+          /* ERROR("Unexpected verdict\n"); */
           /* fallthrough */
         case DROP:
           *xsk_ring_prod__fill_addr(&xsk->umem->fq, fq_index++) = CHUNK_ALIGN(batch[i].addr);

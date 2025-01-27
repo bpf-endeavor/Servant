@@ -78,7 +78,8 @@ __inline int complete_tx(struct xsk_socket_info *xsk)
   uint32_t ndescs = MAX(config.batch_size, xsk->outstanding_tx);
   uint32_t idx_cq = 0;
   uint32_t idx_fq = 0;
-  uint64_t *cqd, *fqd;
+  const __u64 *cqd;
+  __u64 *fqd;
 
   /* put back completed Tx descriptors */
   const uint32_t rcvd = xsk_ring_cons__peek(&xsk->umem->cq, ndescs, &idx_cq);

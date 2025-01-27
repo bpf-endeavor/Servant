@@ -77,7 +77,7 @@ struct xsk_socket_info *setup_socket(char *ifname, uint32_t qid)
 
   // memory for umem
   uint64_t umem_size = config.num_frames * config.frame_size;
-  const void *memory_off = (void *)((1LL << 30) * 4) ;
+  void *memory_off = (void *)((1LL << 30) * 4) ;
   bufs = mmap(memory_off, umem_size,
       PROT_READ | PROT_WRITE,
       MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED | MAP_HUGETLB,

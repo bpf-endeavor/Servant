@@ -25,15 +25,14 @@ uint64_t readTSC() {
   return tsc;
 }
 
-  static inline uint64_t __attribute__((always_inline))
+#define ONE_MILION 1000000000LL
+
+static inline uint64_t __attribute__((always_inline))
 ubpf_time_get_ns(void)
 {
   struct timespec spec = {};
-  /* clock_gettime(CLOCK_REALTIME, &spec); */
-  clock_gettime(CLOCK_MONOTONIC, &spec);
-  /* clock_gettime(CLOCK_MONOTONIC_COARSE, &spec); */
-  return (uint64_t)(spec.tv_sec) * (uint64_t)1000000000LL +
-    (uint64_t)(spec.tv_nsec);
+  clock_gettime(CLOCK_MONOTONIC_COARSE, &spec);
+  return (uint64_t)spec.tv_sec * ONE_MILION + (uint64_t)spec.tv_nsec;
 }
 
 typedef struct {
