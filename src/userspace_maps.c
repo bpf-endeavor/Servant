@@ -107,6 +107,8 @@
 /* } */
 
 
+#define F_LRU_BYPASS (1 << 1)
+
 struct flow_key {
   union {
     uint32_t src;
@@ -191,7 +193,8 @@ static void __configure_katran_maps(void *vm)
     vipdef.port = vipdefs[i].port;
     vipdef.proto = vipdefs[i].proto;
     struct vip_meta vipmeta = {
-      .flags = 0,
+      /* .flags = 0, */
+      .flags = F_LRU_BYPASS,
       .vip_num = i,
     };
     ret = ubpf_update_map(vip_map, &vipdef, &vipmeta);

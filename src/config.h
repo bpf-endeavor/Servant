@@ -12,7 +12,7 @@
 #define DEFAULT_RING_SIZE 512
 #define DEFAULT_BATCH_SIZE 32
 #define DEFAULT_BUSYPOLL_DURATION 20
-#define MAX_NUM_PROGS 4
+#define MAX_NUM_PROGS 8
 #define MAX_NUM_MAPS 10
 struct config {
   int terminate;

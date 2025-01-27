@@ -262,9 +262,9 @@ pump_packets(struct xsk_socket_info *xsk, struct ubpf_vm *vm)
           ERROR("trim_head is larger than the configured headroom size\n");
           pkt_batch.rets[i] = DROP;
         } else  {
-          if (pktctx->trim_head != 0) {
-            DEBUG("trim head = %d\n", pktctx->trim_head);
-          }
+          /* if (pktctx->trim_head != 0) { */
+          /*   DEBUG("trim head = %d\n", pktctx->trim_head); */
+          /* } */
           batch[i].addr += pktctx->trim_head;
         }
 
