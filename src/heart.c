@@ -20,6 +20,7 @@
 /* #define VM_CALL_BATCHING */
 /* #define REPORT_UBPF_OVERHEAD */
 /* #define DBG_CHECK_INCOMING_PKTS */
+#define STATIC_VM_CALL // TODO: it seems the code does not actually emit a dircet call. do more investigation
 
 
 #ifdef USE_POLL
@@ -44,14 +45,25 @@ uint64_t readTSC(void) {
 
 #include "xsk_actions.h"
 
+
+#ifdef STATIC_VM_CALL
+#pragma message "using the static call optimization"
+uint64_t (*_ubpf_prog_0)(void *ctx, size_t ctx_sz) = _UBPF_PROG_ADDR(0);
+uint64_t (*_ubpf_prog_1)(void *ctx, size_t ctx_sz) = _UBPF_PROG_ADDR(1);
+uint64_t (*_ubpf_prog_2)(void *ctx, size_t ctx_sz) = _UBPF_PROG_ADDR(2);
+uint64_t (*_ubpf_prog_3)(void *ctx, size_t ctx_sz) = _UBPF_PROG_ADDR(3);
+uint64_t (*_ubpf_prog_4)(void *ctx, size_t ctx_sz) = _UBPF_PROG_ADDR(4);
+#endif
+
+
 #define F_HAS_YIELDED (1 << 7)
 #define PROG_INDEX_MASK 0x7
 #define YIELD_MASK 0xffff
 #define YIELD_PROG_INDEX(y) ((y >> 16) & PROG_INDEX_MASK)
 #define MAX_NUM_STAGE 8
 static uint8_t has_yield = 0;
-static uint8_t yield_state[128];
 static uint8_t stage_number = 0;
+__attribute__((aligned(64))) static uint8_t yield_state[128];
 
 #ifdef DBG_CHECK_INCOMING_PKTS
 #include <linux/if_ether.h>
@@ -141,10 +153,15 @@ pump_packets(struct xsk_socket_info *xsk, struct ubpf_vm *vm)
   char *errmsg;
   ubpf_jit_fn bpf_progs[MAX_NUM_PROGS];
   for (int i = 0; i < config.yield_sz; i++) {
+    INFO("JIT compiling program %d\n", i);
     bpf_progs[i] = ubpf_compile(vm, i, &errmsg);
     if (bpf_progs[i] == NULL) {
       ERROR("Failed to compile: %s\n", errmsg);
       free(errmsg);
+      return;
+    }
+    if (bpf_progs[i] != _UBPF_PROG_ADDR(i)) {
+      ERROR("The program address does not match the statically designated ones! The optimization won't work! (%p != %p)\n", bpf_progs[i], _UBPF_PROG_ADDR(i));
       return;
     }
   }
@@ -216,7 +233,7 @@ pump_packets(struct xsk_socket_info *xsk, struct ubpf_vm *vm)
       pkt_batch.pkts[i].trim_head = 0;
       pkt_batch.rets[i] = 0;
       /* Consider this packet for processing and start from program at zero index */
-      yield_state[i] = F_HAS_YIELDED;
+      yield_state[i] = F_HAS_YIELDED; // start from program at zero index
 #ifdef DBG_CHECK_INCOMING_PKTS
       if (check_is_for_this_server(ctx) != 0) {
         pkt_batch.rets[i] = DROP;
@@ -245,8 +262,22 @@ pump_packets(struct xsk_socket_info *xsk, struct ubpf_vm *vm)
 #endif
 
         const uint8_t prog_index = yield_state[i] & PROG_INDEX_MASK;
+#ifdef STATIC_VM_CALL
+        /* Try to do direct call instread of an indrect one */
+        verdict_t v;
+        switch(prog_index) {
+          case 0: v = _ubpf_prog_0(pktctx, sizeof(*pktctx)); break;
+          case 1: v = _ubpf_prog_1(pktctx, sizeof(*pktctx)); break;
+          case 2: v = _ubpf_prog_2(pktctx, sizeof(*pktctx)); break;
+          case 3: v = _ubpf_prog_3(pktctx, sizeof(*pktctx)); break;
+          case 4: v = _ubpf_prog_4(pktctx, sizeof(*pktctx)); break;
+          default: v = bpf_progs[prog_index](pktctx, sizeof(*pktctx)); break;
+        }
+        pkt_batch.rets[i] = v;
+#else
         const ubpf_jit_fn fn = bpf_progs[prog_index];
         pkt_batch.rets[i] = fn(pktctx, sizeof(*pktctx));
+#endif
 
 #ifdef REPORT_UBPF_OVERHEAD
         uint64_t end_ts = readTSC();
