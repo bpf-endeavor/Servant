@@ -160,10 +160,12 @@ pump_packets(struct xsk_socket_info *xsk, struct ubpf_vm *vm)
       free(errmsg);
       return;
     }
+#ifdef STATIC_VM_CALL
     if (bpf_progs[i] != _UBPF_PROG_ADDR(i)) {
       ERROR("The program address does not match the statically designated ones! The optimization won't work! (%p != %p)\n", bpf_progs[i], _UBPF_PROG_ADDR(i));
       return;
     }
+#endif
   }
 
   /* TODO: this is just a hack ... */
