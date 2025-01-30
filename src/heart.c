@@ -301,6 +301,8 @@ pump_packets(struct xsk_socket_info *xsk, struct ubpf_vm *vm)
           batch[i].addr += pktctx->trim_head;
         }
 
+        /* clear the yield status: will set again if actually has yielded */
+        yield_state[i] = 0;
         switch (pkt_batch.rets[i]) {
           case DROP:
             xsk->batch.drop++;
