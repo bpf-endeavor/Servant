@@ -195,8 +195,10 @@ pump_packets(struct xsk_socket_info *xsk, struct ubpf_vm *vm)
     if (config.terminate)
       break;
 
-    if (xsk->outstanding_tx > 0)
+    if (xsk->outstanding_tx > 0) {
+      __builtin_prefetch(xsk->umem);
       complete_tx(xsk);
+    }
 
 #ifdef USE_POLL
     if (empty_rx >= 8) {
@@ -209,6 +211,7 @@ pump_packets(struct xsk_socket_info *xsk, struct ubpf_vm *vm)
     }
 #endif
 
+    __builtin_prefetch(xsk);
     const uint32_t rx = poll_rx_queue(xsk, batch, cnt);
     if (!rx) {
 #ifdef USE_POLL
@@ -264,6 +267,7 @@ pump_packets(struct xsk_socket_info *xsk, struct ubpf_vm *vm)
 #endif
 
         const uint8_t prog_index = yield_state[i] & PROG_INDEX_MASK;
+        __builtin_prefetch(pktctx->data);
 #ifdef STATIC_VM_CALL
         /* Try to do direct call instread of an indrect one */
         verdict_t v;
@@ -330,6 +334,7 @@ pump_packets(struct xsk_socket_info *xsk, struct ubpf_vm *vm)
       }
       stage_number++;
     } while(has_yield && stage_number < MAX_NUM_STAGE);
+
 
     if (has_yield) {
       ERROR("Found yield in the last stage!\n");
