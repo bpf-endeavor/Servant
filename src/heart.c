@@ -20,7 +20,7 @@
 /* #define VM_CALL_BATCHING */
 /* #define REPORT_UBPF_OVERHEAD */
 /* #define DBG_CHECK_INCOMING_PKTS */
-#define STATIC_VM_CALL // TODO: it seems the code does not actually emit a dircet call. do more investigation
+/* #define STATIC_VM_CALL // TODO: it seems the code does not actually emit a dircet call. do more investigation */
 
 
 #ifdef USE_POLL
@@ -289,13 +289,13 @@ pump_packets(struct xsk_socket_info *xsk, struct ubpf_vm *vm)
         uint64_t end_ts = readTSC();
         calc_latency_from_ts(start_ts, end_ts);
 #endif
-        if (pktctx->pkt_len > config.frame_size) {
+        if (pktctx->pkt_len > DEFAULT_FRAME_SIZE) {
           ERROR("Too large packet len!\n");
           pkt_batch.rets[i] = DROP;
         } else {
           batch[i].len = pktctx->pkt_len;
         }
-        if (ABS(pktctx->trim_head) > config.headroom) {
+        if (ABS(pktctx->trim_head) > DEFAULT_HEADROOM_SIZE) {
           ERROR("trim_head is larger than the configured headroom size\n");
           pkt_batch.rets[i] = DROP;
         } else  {
@@ -387,6 +387,8 @@ _repeat_tx:
           break;
       }
     }
+    __builtin_prefetch(&config.terminate);
+
     xsk_ring_prod__submit(&xsk->tx, xsk->batch.tx);
     xsk_ring_prod__submit(&xsk->umem->fq, xsk->batch.drop);
     xsk->outstanding_tx += xsk->batch.tx;
